@@ -1,0 +1,27 @@
+# Build outputs
+build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+compile_commands.json
+
+# Local runtime state
+*.db
+*.sqlite
+*.sqlite3
+*.log
+.env
+.env.*
+
+# Source-derived and generated corpus artifacts.
+# Keep manifests and hand-written metadata reviewable in git, but do not publish
+# mirrored PDFs or generated raster assets by default.
+corpus/source-pdfs/*.pdf
+corpus/runtime/assets/*
+!corpus/runtime/assets/.gitkeep
+
+# Local editor and OS noise
+.DS_Store
+Thumbs.db
+*~
+*.swp
