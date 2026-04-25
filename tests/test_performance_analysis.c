@@ -41,6 +41,7 @@ static void analyze_case(ht_catalog* catalog,
                          ht_overlay_store* overlays,
                          char const* session_id,
                          unsigned first_pitch,
+                         int64_t first_time,
                          bool include_second,
                          int64_t second_time,
                          ht_analysis_record* out_analysis) {
@@ -49,7 +50,7 @@ static void analyze_case(ht_catalog* catalog,
     assert(ht_db_open(&db, ":memory:") == HT_OK);
     assert(ht_db_migrate(db) == HT_OK);
     insert_session(db, session_id);
-    insert_note(db, session_id, 1u, 0, first_pitch);
+    insert_note(db, session_id, 1u, first_time, first_pitch);
     if (include_second) {
         insert_note(db, session_id, 2u, second_time, 62u);
     }
@@ -66,22 +67,29 @@ int main(void) {
     assert(ht_overlay_store_open(&overlays, HT_SOURCE_DIR "/tests/fixtures/synthetic-corpus")
            == HT_OK);
 
-    analyze_case(catalog, overlays, "perfect-session", 60u, true, 1000000000, &analysis);
+    analyze_case(catalog, overlays, "perfect-session", 60u, 0, true, 1000000000, &analysis);
     assert(analysis.wrong_note_count == 0u);
     assert(analysis.missed_note_count == 0u);
     assert(analysis.extra_note_count == 0u);
     assert(analysis.weak_step_count == 0u);
 
-    analyze_case(catalog, overlays, "wrong-note-session", 61u, true, 1000000000, &analysis);
+    analyze_case(catalog, overlays, "wrong-note-session", 61u, 0, true, 1000000000, &analysis);
     assert(analysis.wrong_note_count == 1u);
     assert(analysis.missed_note_count == 0u);
+    assert(analysis.weak_step_count == 1u);
 
-    analyze_case(catalog, overlays, "missing-note-session", 60u, false, 0, &analysis);
+    analyze_case(catalog, overlays, "missing-note-session", 60u, 0, false, 0, &analysis);
     assert(analysis.missed_note_count == 1u);
+    assert(analysis.weak_step_count == 1u);
 
-    analyze_case(catalog, overlays, "late-note-session", 60u, true, 1120000000, &analysis);
+    analyze_case(catalog, overlays, "late-note-session", 60u, 0, true, 1120000000, &analysis);
     assert(analysis.max_late_ms == 120);
-    assert(analysis.weak_step_count > 0u);
+    assert(analysis.weak_step_count == 1u);
+
+    analyze_case(catalog, overlays, "wrong-late-same-step-session", 61u, 120000000, true, 1000000000, &analysis);
+    assert(analysis.wrong_note_count == 1u);
+    assert(analysis.max_late_ms == 120);
+    assert(analysis.weak_step_count == 1u);
 
     ht_overlay_store_close(overlays);
     ht_catalog_close(catalog);

@@ -8,8 +8,10 @@
 struct ht_overlay_store {
     ht_overlay_record* overlays;
     size_t overlay_count;
+    size_t overlay_capacity;
     ht_overlay_step_record* steps;
     size_t step_count;
+    size_t step_capacity;
 };
 
 static void zero_overlay(ht_overlay_record* out_overlay) {
@@ -73,7 +75,7 @@ static ht_status parse_unsigned(char const* text, unsigned* out_value) {
     char* end = NULL;
     unsigned long value;
 
-    if ((text == NULL) || (out_value == NULL) || (text[0] == '\0')) {
+    if ((text == NULL) || (out_value == NULL) || (text[0] == '\0') || (text[0] == '-')) {
         return HT_ERR_CORRUPT_DATA;
     }
     errno = 0;
@@ -89,7 +91,7 @@ static ht_status parse_size(char const* text, size_t* out_value) {
     char* end = NULL;
     unsigned long value;
 
-    if ((text == NULL) || (out_value == NULL) || (text[0] == '\0')) {
+    if ((text == NULL) || (out_value == NULL) || (text[0] == '\0') || (text[0] == '-')) {
         return HT_ERR_CORRUPT_DATA;
     }
     errno = 0;
@@ -288,24 +290,36 @@ static ht_status parse_step_line(char* line, ht_overlay_step_record* out_step) {
 }
 
 static ht_status append_overlay(ht_overlay_store* store, ht_overlay_record const* overlay) {
-    ht_overlay_record* next = realloc(store->overlays, (store->overlay_count + 1u) * sizeof(*next));
+    ht_overlay_record* next;
+    size_t next_capacity;
 
-    if (next == NULL) {
-        return HT_ERR_IO;
+    if (store->overlay_count == store->overlay_capacity) {
+        next_capacity = (store->overlay_capacity == 0u) ? 8u : store->overlay_capacity * 2u;
+        next = realloc(store->overlays, next_capacity * sizeof(*next));
+        if (next == NULL) {
+            return HT_ERR_IO;
+        }
+        store->overlays = next;
+        store->overlay_capacity = next_capacity;
     }
-    store->overlays = next;
     store->overlays[store->overlay_count] = *overlay;
     ++store->overlay_count;
     return HT_OK;
 }
 
 static ht_status append_step(ht_overlay_store* store, ht_overlay_step_record const* step) {
-    ht_overlay_step_record* next = realloc(store->steps, (store->step_count + 1u) * sizeof(*next));
+    ht_overlay_step_record* next;
+    size_t next_capacity;
 
-    if (next == NULL) {
-        return HT_ERR_IO;
+    if (store->step_count == store->step_capacity) {
+        next_capacity = (store->step_capacity == 0u) ? 16u : store->step_capacity * 2u;
+        next = realloc(store->steps, next_capacity * sizeof(*next));
+        if (next == NULL) {
+            return HT_ERR_IO;
+        }
+        store->steps = next;
+        store->step_capacity = next_capacity;
     }
-    store->steps = next;
     store->steps[store->step_count] = *step;
     ++store->step_count;
     return HT_OK;

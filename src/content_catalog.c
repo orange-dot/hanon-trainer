@@ -71,7 +71,7 @@ static ht_status parse_unsigned(char const* text, unsigned* out_value) {
     char* end = NULL;
     unsigned long value;
 
-    if ((text == NULL) || (out_value == NULL) || (text[0] == '\0')) {
+    if ((text == NULL) || (out_value == NULL) || (text[0] == '\0') || (text[0] == '-')) {
         return HT_ERR_CORRUPT_DATA;
     }
 

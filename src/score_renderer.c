@@ -41,7 +41,7 @@ ht_status ht_score_renderer_probe(ht_score_renderer* renderer) {
         return HT_ERR_INVALID_ARG;
     }
 
-    SDL_VERSION(&sdl_version);
+    SDL_GetVersion(&sdl_version);
     ttf_version = TTF_Linked_Version();
     if (ttf_version == NULL) {
         return HT_ERR_UNSUPPORTED;

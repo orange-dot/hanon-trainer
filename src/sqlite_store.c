@@ -127,6 +127,10 @@ ht_status ht_db_open(ht_db** out_db, char const* database_path) {
         ht_db_close(db);
         return HT_ERR_DB;
     }
+    if (sqlite3_exec(db->connection, "PRAGMA foreign_keys = ON;", NULL, NULL, NULL) != SQLITE_OK) {
+        ht_db_close(db);
+        return HT_ERR_DB;
+    }
 
     *out_db = db;
     return HT_OK;

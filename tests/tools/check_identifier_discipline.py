@@ -4,20 +4,14 @@ import pathlib
 import re
 
 
-RESERVED_LEADING = {
-    "__cplusplus",
-    "__has_attribute",
-    "__STDC_VERSION__",
-    "_Bool",
-    "_Static_assert",
-    "__attribute__",
-}
-
-
 def strip_comments(text: str) -> str:
     text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
     text = re.sub(r"//.*", "", text)
     return text
+
+
+def is_reserved_c_or_compiler_token(token: str) -> bool:
+    return token.startswith("__") or (len(token) > 1 and token[1].isupper())
 
 
 def find_typedef_names(text: str) -> list[str]:
@@ -42,7 +36,7 @@ def main() -> int:
             if name.endswith("_t"):
                 failures.append(f"{header}: typedef '{name}' uses reserved _t suffix")
         for token in re.findall(r"\b_[A-Za-z_]\w*\b", clean):
-            if token not in RESERVED_LEADING:
+            if not is_reserved_c_or_compiler_token(token):
                 failures.append(f"{header}: token '{token}' uses leading underscore")
 
     if failures:

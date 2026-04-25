@@ -19,6 +19,28 @@ static ht_session_record make_session(char const* session_id) {
     return session;
 }
 
+static void assert_foreign_keys_enabled_after_reopen(void) {
+    char database_path[256];
+    ht_db* db = NULL;
+    ht_midi_event_record orphan_event = {0};
+
+    snprintf(database_path, sizeof(database_path), "%s", "/tmp/hanon-trainer-fk-test.sqlite");
+    remove(database_path);
+
+    assert(ht_db_open(&db, database_path) == HT_OK);
+    assert(ht_db_migrate(db) == HT_OK);
+    ht_db_close(db);
+
+    assert(ht_db_open(&db, database_path) == HT_OK);
+    snprintf(orphan_event.session_id, sizeof(orphan_event.session_id), "%s", "missing-session");
+    orphan_event.sequence_no = 1u;
+    orphan_event.event_kind = HT_MIDI_EVENT_NOTE_ON;
+    assert(ht_db_append_midi_event(db, &orphan_event) == HT_ERR_DB);
+    ht_db_close(db);
+
+    remove(database_path);
+}
+
 int main(void) {
     ht_db* db = NULL;
     ht_user_state_record state = {0};
@@ -109,5 +131,6 @@ int main(void) {
     assert(ht_db_store_advice(db, &advice) == HT_OK);
 
     ht_db_close(db);
+    assert_foreign_keys_enabled_after_reopen();
     return 0;
 }

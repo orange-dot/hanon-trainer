@@ -113,6 +113,7 @@ ht_status ht_analysis_run_session(ht_db* db,
         ht_overlay_step_record step;
         ht_analysis_step_record step_result;
         size_t matched_index;
+        bool step_was_weak = false;
 
         status = ht_overlay_store_get_step(overlays, overlay.overlay_id, step_index, &step);
         if (status != HT_OK) {
@@ -126,7 +127,7 @@ ht_status ht_analysis_run_session(ht_db* db,
         matched_index = find_next_note_on(events, event_count, event_index);
         if (matched_index == event_count) {
             ++analysis.missed_note_count;
-            ++analysis.weak_step_count;
+            step_was_weak = true;
             step_result.pitch_status = HT_PITCH_MISSED;
             step_result.timing_status = HT_TIMING_MISSING;
             set_text(step_result.note_summary, sizeof(step_result.note_summary), "missing note");
@@ -141,20 +142,20 @@ ht_status ht_analysis_run_session(ht_db* db,
                 step_result.pitch_status = HT_PITCH_MATCH;
             } else {
                 ++analysis.wrong_note_count;
-                ++analysis.weak_step_count;
+                step_was_weak = true;
                 step_result.pitch_status = HT_PITCH_WRONG;
             }
 
             if (abs_int(error_ms) <= step.timing_window_ms) {
                 step_result.timing_status = HT_TIMING_ON_TIME;
             } else if (error_ms < 0) {
-                ++analysis.weak_step_count;
+                step_was_weak = true;
                 step_result.timing_status = HT_TIMING_EARLY;
                 if (abs_int(error_ms) > analysis.max_early_ms) {
                     analysis.max_early_ms = abs_int(error_ms);
                 }
             } else {
-                ++analysis.weak_step_count;
+                step_was_weak = true;
                 step_result.timing_status = HT_TIMING_LATE;
                 if (error_ms > analysis.max_late_ms) {
                     analysis.max_late_ms = error_ms;
@@ -170,6 +171,9 @@ ht_status ht_analysis_run_session(ht_db* db,
                 set_text(step_result.note_summary, sizeof(step_result.note_summary), "review step");
             }
         }
+        if (step_was_weak) {
+            ++analysis.weak_step_count;
+        }
 
         status = ht_db_store_analysis_step(db, &step_result);
         if (status != HT_OK) {
@@ -178,8 +182,8 @@ ht_status ht_analysis_run_session(ht_db* db,
         }
     }
 
-    while (find_next_note_on(events, event_count, event_index) != event_count) {
-        event_index = find_next_note_on(events, event_count, event_index) + 1u;
+    while ((event_index = find_next_note_on(events, event_count, event_index)) != event_count) {
+        ++event_index;
         ++analysis.extra_note_count;
     }
     if (timed_event_count > 0u) {
