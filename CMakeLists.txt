@@ -130,7 +130,8 @@ add_test(
   NAME ht_pc4_fixture_schema
   COMMAND ${Python3_EXECUTABLE}
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/tools/check_pc4_fixture_schema.py
-    --fixture-dir ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/synthetic-pc4-capture
+    --out-dir ${CMAKE_CURRENT_BINARY_DIR}/generated-fixtures/synthetic-pc4-capture
+    --seed 20260425
 )
 
 add_test(

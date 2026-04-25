@@ -74,10 +74,11 @@ groups | grep audio
 For a known ALSA port, `aseqdump -p <client>:<port>` is still useful as an
 external cross-check when diagnosing driver or permissions problems.
 
-The checked-in `tests/fixtures/synthetic-pc4-capture/` package contains a
-small screenshot-derived Kurzweil PC4 aftertouch fixture in the same TSV schema.
-Its timestamps are synthetic and are suitable for parser coverage, not
-performance timing analysis.
+CTest also generates a synthetic Kurzweil PC4-like capture under
+`build/generated-fixtures/synthetic-pc4-capture/`. That CI fixture covers the
+same TSV schema plus aftertouch, controllers, pitchbend, program change, SysEx,
+and multiple channels. Its timestamps are synthetic and are suitable for parser
+coverage, not performance timing analysis.
 
 ## Corpus Publication Posture
 

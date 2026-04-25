@@ -16,7 +16,7 @@ The CLI supports `--help`, `--version`, `--list`, and timed capture from an expl
 The tool owns the ALSA sequencer handle, local input port, subscription, and poll descriptors for the process lifetime. CLI errors return `EX_USAGE`; ALSA runtime failures return `1`; clean capture returns `0` even with zero events.
 
 ## Test Strategy
-CTest covers help/version and parser failures without requiring hardware. `tests/fixtures/synthetic-pc4-capture` protects a screenshot-derived Kurzweil PC4 channel-pressure fixture for parser consumers. Manual hardware acceptance uses `--list` followed by timed capture from the displayed Kurzweil port.
+CTest covers help/version and parser failures without requiring hardware. It also generates a synthetic Kurzweil PC4-like raw capture in the build directory to protect the TSV schema and MIDI event-class coverage for parser consumers. Manual hardware acceptance uses `--list` followed by timed capture from the displayed Kurzweil port.
 
 ## Spec Links
 - docs/LOCAL_SPEC.md

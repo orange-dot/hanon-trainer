@@ -29,7 +29,7 @@ SQLite store, and Codex advice path are working.
 | `fq-2` | Should the app eventually support phrase-by-phrase coaching between takes? | This affects session UX and capture-state transitions. | Keep the first build strictly post-session. |
 | `fq-3` | Does the corpus eventually need richer annotation tooling for overlay maintenance? | This affects long-term authoring cost once coverage expands. | Start with manual-first files and revisit when authoring pain is real. |
 | `fq-4` | Is audio capture worth adding after MIDI support stabilizes? | This would create a second analysis pipeline with different failure modes. | Keep audio out of scope for now. |
-| `fq-5` | Should the PC4 screenshot-derived trace also become a SQLite-event fixture? | The current PC4 package validates `ht_midi_probe` TSV decode shape, while SQLite fixtures need `session_id`, `sequence_no`, `event_ns`, `status_byte`, `data_1`, `data_2`, `channel`, and `event_kind`. Mixing the two schemas in one slice would blur probe output with persisted event records. | Defer to a separate SQLite-event fixture slice after the live MIDI probe PR lands. |
+| `fq-5` | Should the generated PC4 raw capture also emit a SQLite-event fixture? | The current PC4 generator validates `ht_midi_probe` TSV decode shape, while SQLite fixtures need `session_id`, `sequence_no`, `event_ns`, `status_byte`, `data_1`, `data_2`, `channel`, and `event_kind`. Mixing the two schemas in one slice would blur probe output with persisted event records. | Defer to a separate SQLite-event fixture slice after the live MIDI probe PR lands. |
 
 ## Content Posture
 
