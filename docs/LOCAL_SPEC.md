@@ -186,11 +186,19 @@ than fit in the provided buffer.
 - `ht_status ht_db_load_user_state(ht_db* db, ht_user_state_record* out_state);`
 - `ht_status ht_db_save_user_state(ht_db* db, ht_user_state_record const* state);`
 - `ht_status ht_db_insert_session(ht_db* db, ht_session_record const* session);`
+- `ht_status ht_db_load_session(ht_db* db, char const* session_id, ht_session_record* out_session);`
 - `ht_status ht_db_append_midi_event(ht_db* db, ht_midi_event_record const* event);`
+- `ht_status ht_db_load_midi_events(ht_db* db, char const* session_id, ht_midi_event_record* out_events, size_t capacity, size_t* out_count);`
 - `ht_status ht_db_store_analysis(ht_db* db, ht_analysis_record const* analysis);`
+- `ht_status ht_db_load_analysis(ht_db* db, char const* session_id, ht_analysis_record* out_analysis);`
 - `ht_status ht_db_store_analysis_step(ht_db* db, ht_analysis_step_record const* step);`
 - `ht_status ht_db_load_analysis_steps(ht_db* db, char const* session_id, ht_analysis_step_record* out_steps, size_t capacity, size_t* out_count);`
 - `ht_status ht_db_store_advice(ht_db* db, ht_advice_record const* advice);`
+
+`ht_db_load_session`, `ht_db_load_midi_events`, and `ht_db_load_analysis` are
+read-side helpers required by `performance_analysis` and `advice_orchestrator`.
+They follow the same caller-owned output and count-reporting rules as the
+original store API.
 
 `ht_db_load_analysis_steps` writes at most `capacity` step records, sorted by
 `step_index`. It sets `out_count` to the number of stored step results for the
