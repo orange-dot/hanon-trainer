@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - development
+      - dev
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux-native:
+    name: Linux native build and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install and verify native dependencies
+        run: scripts/setup-dev-env.sh
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure

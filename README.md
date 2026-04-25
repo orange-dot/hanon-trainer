@@ -35,6 +35,9 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
+GitHub Actions runs the same native setup/build/test path for pushes to
+`development` and `dev`, and for pull requests targeting `main`.
+
 If `corpus/source-pdfs/hanon-exercise-01-c.pdf` is absent in a fresh checkout,
 the asset-generation CTest is skipped. If the PDF is present locally, the test
 generates and verifies `corpus/runtime/assets/hanon-exercise-01-c.ppm`.
