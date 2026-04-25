@@ -29,5 +29,13 @@ jobs:
       - name: Build
         run: cmake --build build
 
+      - name: Generate and replay synthetic PC4 capture
+        run: |
+          python3 tests/tools/check_pc4_fixture_schema.py \
+            --out-dir build/generated-fixtures/synthetic-pc4-capture \
+            --seed 20260425 \
+            --probe build/ht_midi_probe \
+            --verbose
+
       - name: Test
         run: ctest --test-dir build --output-on-failure

@@ -63,6 +63,28 @@ target_link_libraries(hanon_trainer
     ${ALSA_LIBRARIES}
 )
 
+add_library(ht_midi_decode STATIC
+  src/midi_decode.c
+)
+target_include_directories(ht_midi_decode
+  PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+target_compile_options(ht_midi_decode PRIVATE -Wall -Wextra -Wpedantic)
+
+add_executable(ht_midi_probe tools/ht_midi_probe.c)
+target_include_directories(ht_midi_probe PRIVATE ${ALSA_INCLUDE_DIRS})
+target_compile_definitions(ht_midi_probe
+  PRIVATE
+    _DEFAULT_SOURCE
+    _POSIX_C_SOURCE=200809L
+    HT_PROJECT_VERSION="${PROJECT_VERSION}"
+)
+target_compile_options(ht_midi_probe PRIVATE -Wall -Wextra -Wpedantic)
+target_link_directories(ht_midi_probe PRIVATE ${ALSA_LIBRARY_DIRS})
+target_link_libraries(ht_midi_probe PRIVATE ht_midi_decode ${ALSA_LIBRARIES})
+
 function(ht_add_c_test name source)
   add_executable(${name} ${source})
   target_link_libraries(${name} PRIVATE hanon_trainer)
@@ -77,6 +99,11 @@ ht_add_c_test(ht_test_sqlite_store tests/test_sqlite_store.c)
 ht_add_c_test(ht_test_performance_analysis tests/test_performance_analysis.c)
 ht_add_c_test(ht_test_advice_orchestrator tests/test_advice_orchestrator.c)
 ht_add_c_test(ht_test_platform_boundaries tests/test_platform_boundaries.c)
+
+add_executable(ht_test_midi_decode tests/test_midi_decode.c)
+target_link_libraries(ht_test_midi_decode PRIVATE ht_midi_decode)
+target_compile_options(ht_test_midi_decode PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME ht_test_midi_decode COMMAND ht_test_midi_decode)
 
 add_test(
   NAME ht_header_independence
@@ -105,6 +132,22 @@ add_test(
   COMMAND ${Python3_EXECUTABLE}
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/tools/check_companion_docs.py
     --root ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+add_test(
+  NAME ht_midi_probe_cli
+  COMMAND ${Python3_EXECUTABLE}
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/tools/check_midi_probe_cli.py
+    --probe $<TARGET_FILE:ht_midi_probe>
+)
+
+add_test(
+  NAME ht_pc4_fixture_schema
+  COMMAND ${Python3_EXECUTABLE}
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/tools/check_pc4_fixture_schema.py
+    --out-dir ${CMAKE_CURRENT_BINARY_DIR}/generated-fixtures/synthetic-pc4-capture
+    --seed 20260425
+    --probe $<TARGET_FILE:ht_midi_probe>
 )
 
 add_test(

@@ -42,6 +42,8 @@ include/hanon_trainer/
   guidance_renderer.h
 src/
   *.c
+tools/
+  *.c command-line diagnostics outside the public library surface
 assets/
 corpus/
 ```
