@@ -1,5 +1,7 @@
 #include <alsa/asoundlib.h>
 
+#include "midi_decode.h"
+
 #include <errno.h>
 #include <limits.h>
 #include <locale.h>
@@ -22,6 +24,8 @@
 #endif
 
 #define HT_MIDI_PROBE_MAX_DURATION_SECONDS 3600L
+#define HT_PROBE_REPLAY_LINE_CAPACITY 4096u
+#define HT_PROBE_REPLAY_RAW_CAPACITY 256u
 
 typedef enum ht_probe_format {
     HT_PROBE_FORMAT_NONE = 0,
@@ -32,6 +36,7 @@ typedef enum ht_probe_format {
 typedef struct ht_probe_options {
     bool list_ports;
     char const* port_text;
+    char const* replay_raw_tsv_path;
     long duration_seconds;
     ht_probe_format format;
 } ht_probe_options;
@@ -42,21 +47,6 @@ typedef struct ht_probe_context {
     int local_port;
     bool connected;
 } ht_probe_context;
-
-typedef struct ht_probe_event {
-    char const* kind;
-    int channel;
-    bool has_channel;
-    int note;
-    bool has_note;
-    int velocity;
-    bool has_velocity;
-    int controller;
-    bool has_controller;
-    int value;
-    bool has_value;
-    unsigned raw_type;
-} ht_probe_event;
 
 static volatile sig_atomic_t stop_requested;
 
@@ -72,7 +62,8 @@ static void print_usage(FILE* output) {
             "  ht_midi_probe --version\n"
             "  ht_midi_probe --list\n"
             "  ht_midi_probe --port CLIENT:PORT --duration SECONDS --format table\n"
-            "  ht_midi_probe --port CLIENT:PORT --duration SECONDS --format tsv\n");
+            "  ht_midi_probe --port CLIENT:PORT --duration SECONDS --format tsv\n"
+            "  ht_midi_probe --replay-raw-tsv PATH --format tsv\n");
 }
 
 static int usage_error(char const* message) {
@@ -83,6 +74,19 @@ static int usage_error(char const* message) {
 
 static void print_alsa_error(char const* action, int rc) {
     fprintf(stderr, "alsa: %s: %s\n", action, snd_strerror(rc));
+}
+
+static char const* probe_status_name(ht_status status) {
+    switch (status) {
+    case HT_OK:
+        return "HT_OK";
+    case HT_ERR_INVALID_ARG:
+        return "HT_ERR_INVALID_ARG";
+    case HT_ERR_CORRUPT_DATA:
+        return "HT_ERR_CORRUPT_DATA";
+    default:
+        return "HT_ERR_OTHER";
+    }
 }
 
 static bool parse_long(char const* text, long* out_value) {
@@ -145,6 +149,14 @@ static int parse_options(int argc, char** argv, ht_probe_options* out_options) {
             out_options->port_text = argv[index];
             continue;
         }
+        if (strcmp(argv[index], "--replay-raw-tsv") == 0) {
+            if ((index + 1) >= argc) {
+                return usage_error("--replay-raw-tsv requires a value");
+            }
+            ++index;
+            out_options->replay_raw_tsv_path = argv[index];
+            continue;
+        }
         if (strcmp(argv[index], "--duration") == 0) {
             long duration;
 
@@ -178,8 +190,19 @@ static int parse_options(int argc, char** argv, ht_probe_options* out_options) {
 
     if (out_options->list_ports) {
         if ((out_options->port_text != NULL) || (out_options->duration_seconds != 0L)
-            || (out_options->format != HT_PROBE_FORMAT_NONE)) {
+            || (out_options->format != HT_PROBE_FORMAT_NONE)
+            || (out_options->replay_raw_tsv_path != NULL)) {
             return usage_error("--list cannot be combined with capture options");
+        }
+        return 0;
+    }
+
+    if (out_options->replay_raw_tsv_path != NULL) {
+        if ((out_options->port_text != NULL) || (out_options->duration_seconds != 0L)) {
+            return usage_error("--replay-raw-tsv cannot be combined with capture options");
+        }
+        if (out_options->format == HT_PROBE_FORMAT_NONE) {
+            return usage_error("--replay-raw-tsv requires --format table or --format tsv");
         }
         return 0;
     }
@@ -293,152 +316,130 @@ static int64_t monotonic_ms(void) {
     return ((int64_t)now.tv_sec * 1000) + ((int64_t)now.tv_nsec / 1000000);
 }
 
+static void format_unsigned_or_empty(unsigned value, bool has_value) {
+    if (has_value) {
+        printf("%u", value);
+    }
+}
+
 static void format_int_or_empty(int value, bool has_value) {
     if (has_value) {
         printf("%d", value);
     }
 }
 
-static int user_midi_channel(int alsa_channel) {
-    return alsa_channel + 1;
-}
-
-static char const* raw_type_name(unsigned raw_type) {
-    switch (raw_type) {
-    case 0x80u:
-        return "NOTEOFF";
-    case 0x90u:
-        return "NOTEON";
-    case 0xA0u:
-        return "KEYPRESS";
-    case 0xB0u:
-        return "CONTROLLER";
-    case 0xC0u:
-        return "PGMCHANGE";
-    case 0xD0u:
-        return "CHANPRESS";
-    case 0xE0u:
-        return "PITCHBEND";
-    case 0xF0u:
-        return "SYSEX";
-    default:
-        return "OTHER";
+static unsigned char clamp_7bit(int value) {
+    if (value < 0) {
+        return 0u;
     }
+    if (value > 0x7F) {
+        return 0x7Fu;
+    }
+    return (unsigned char)value;
 }
 
-static ht_probe_event decode_event(snd_seq_event_t const* event) {
-    ht_probe_event decoded;
+static unsigned char channel_status(unsigned status_class, int alsa_channel) {
+    int channel = alsa_channel;
 
-    memset(&decoded, 0, sizeof(decoded));
-    decoded.kind = "other";
-    decoded.raw_type = (event == NULL) ? 0u : (unsigned)event->type;
-    if (event == NULL) {
-        return decoded;
+    if (channel < 0) {
+        channel = 0;
+    }
+    if (channel > 15) {
+        channel = 15;
+    }
+    return (unsigned char)(status_class | (unsigned)channel);
+}
+
+static unsigned normalize_alsa_pitchbend(int value) {
+    long normalized = (long)value + 8192L;
+
+    if (normalized < 0L) {
+        return 0u;
+    }
+    if (normalized > 0x3FFFL) {
+        return 0x3FFFu;
+    }
+    return (unsigned)normalized;
+}
+
+static ht_status decode_alsa_event(snd_seq_event_t const* event,
+                                   ht_midi_decoded_event* out_event) {
+    unsigned char raw[3];
+    unsigned pitchbend_value;
+
+    if ((event == NULL) || (out_event == NULL)) {
+        return HT_ERR_INVALID_ARG;
     }
 
     switch (event->type) {
     case SND_SEQ_EVENT_NOTEON:
-        decoded.channel = user_midi_channel(event->data.note.channel);
-        decoded.has_channel = true;
-        decoded.note = event->data.note.note;
-        decoded.has_note = true;
-        decoded.velocity = event->data.note.velocity;
-        decoded.has_velocity = true;
-        decoded.raw_type = 0x90u;
-        decoded.kind = (event->data.note.velocity == 0) ? "note_off" : "note_on";
-        break;
+        raw[0] = channel_status(0x90u, event->data.note.channel);
+        raw[1] = clamp_7bit(event->data.note.note);
+        raw[2] = clamp_7bit(event->data.note.velocity);
+        return ht_midi_decode_raw_event(raw, 3u, out_event);
     case SND_SEQ_EVENT_NOTEOFF:
-        decoded.channel = user_midi_channel(event->data.note.channel);
-        decoded.has_channel = true;
-        decoded.note = event->data.note.note;
-        decoded.has_note = true;
-        decoded.velocity = event->data.note.velocity;
-        decoded.has_velocity = true;
-        decoded.raw_type = 0x80u;
-        decoded.kind = "note_off";
-        break;
+        raw[0] = channel_status(0x80u, event->data.note.channel);
+        raw[1] = clamp_7bit(event->data.note.note);
+        raw[2] = clamp_7bit(event->data.note.velocity);
+        return ht_midi_decode_raw_event(raw, 3u, out_event);
     case SND_SEQ_EVENT_CONTROLLER:
-        decoded.channel = user_midi_channel(event->data.control.channel);
-        decoded.has_channel = true;
-        decoded.controller = event->data.control.param;
-        decoded.has_controller = true;
-        decoded.value = event->data.control.value;
-        decoded.has_value = true;
-        decoded.raw_type = 0xB0u;
-        decoded.kind = "controller";
-        break;
+        raw[0] = channel_status(0xB0u, event->data.control.channel);
+        raw[1] = clamp_7bit(event->data.control.param);
+        raw[2] = clamp_7bit(event->data.control.value);
+        return ht_midi_decode_raw_event(raw, 3u, out_event);
     case SND_SEQ_EVENT_PITCHBEND:
-        decoded.channel = user_midi_channel(event->data.control.channel);
-        decoded.has_channel = true;
-        decoded.value = event->data.control.value;
-        decoded.has_value = true;
-        decoded.raw_type = 0xE0u;
-        decoded.kind = "pitchbend";
-        break;
+        pitchbend_value = normalize_alsa_pitchbend(event->data.control.value);
+        raw[0] = channel_status(0xE0u, event->data.control.channel);
+        raw[1] = (unsigned char)(pitchbend_value & 0x7Fu);
+        raw[2] = (unsigned char)((pitchbend_value >> 7) & 0x7Fu);
+        return ht_midi_decode_raw_event(raw, 3u, out_event);
     case SND_SEQ_EVENT_PGMCHANGE:
-        decoded.channel = user_midi_channel(event->data.control.channel);
-        decoded.has_channel = true;
-        decoded.value = event->data.control.value;
-        decoded.has_value = true;
-        decoded.raw_type = 0xC0u;
-        decoded.kind = "pgmchange";
-        break;
+        raw[0] = channel_status(0xC0u, event->data.control.channel);
+        raw[1] = clamp_7bit(event->data.control.value);
+        return ht_midi_decode_raw_event(raw, 2u, out_event);
     case SND_SEQ_EVENT_CHANPRESS:
-        decoded.channel = user_midi_channel(event->data.control.channel);
-        decoded.has_channel = true;
-        decoded.value = event->data.control.value;
-        decoded.has_value = true;
-        decoded.raw_type = 0xD0u;
-        decoded.kind = "chanpress";
-        break;
+        raw[0] = channel_status(0xD0u, event->data.control.channel);
+        raw[1] = clamp_7bit(event->data.control.value);
+        return ht_midi_decode_raw_event(raw, 2u, out_event);
     case SND_SEQ_EVENT_KEYPRESS:
-        decoded.channel = user_midi_channel(event->data.note.channel);
-        decoded.has_channel = true;
-        decoded.note = event->data.note.note;
-        decoded.has_note = true;
-        decoded.value = event->data.note.velocity;
-        decoded.has_value = true;
-        decoded.raw_type = 0xA0u;
-        decoded.kind = "keypress";
-        break;
+        raw[0] = channel_status(0xA0u, event->data.note.channel);
+        raw[1] = clamp_7bit(event->data.note.note);
+        raw[2] = clamp_7bit(event->data.note.velocity);
+        return ht_midi_decode_raw_event(raw, 3u, out_event);
     case SND_SEQ_EVENT_SYSEX:
-        decoded.value = (int)event->data.ext.len;
-        decoded.has_value = true;
-        decoded.raw_type = 0xF0u;
-        decoded.kind = "sysex";
-        break;
+        return ht_midi_decode_sysex_length((size_t)event->data.ext.len, out_event);
     default:
-        decoded.kind = "other";
-        break;
+        memset(out_event, 0, sizeof(*out_event));
+        out_event->kind = HT_MIDI_DECODED_OTHER;
+        out_event->raw_type = (unsigned)event->type;
+        return HT_OK;
     }
-
-    return decoded;
 }
 
-static void print_table_event(int64_t ms, ht_probe_event const* event) {
+static void print_table_event(int64_t ms, ht_midi_decoded_event const* event) {
     printf("%8lld  %-10s  ch=",
            (long long)ms,
-           event->kind);
+           ht_midi_decoded_kind_name(event->kind));
     if (event->has_channel) {
-        printf("%d", event->channel);
+        printf("%u", event->channel);
     } else {
         printf("-");
     }
     printf("  note=");
     if (event->has_note) {
-        printf("%d", event->note);
+        printf("%u", event->note);
     } else {
         printf("-");
     }
     printf("  velocity=");
     if (event->has_velocity) {
-        printf("%d", event->velocity);
+        printf("%u", event->velocity);
     } else {
         printf("-");
     }
     printf("  controller=");
     if (event->has_controller) {
-        printf("%d", event->controller);
+        printf("%u", event->controller);
     } else {
         printf("-");
     }
@@ -448,36 +449,234 @@ static void print_table_event(int64_t ms, ht_probe_event const* event) {
     } else {
         printf("-");
     }
-    printf("  raw_type=%s(0x%02X)\n", raw_type_name(event->raw_type), event->raw_type);
+    printf("  raw_type=%s(0x%02X)\n",
+           ht_midi_raw_type_name(event->raw_type),
+           event->raw_type);
 }
 
 static void print_tsv_header(void) {
     printf("ms\tkind\tchannel\tnote\tvelocity\tcontroller\tvalue\traw_type\n");
 }
 
-static void print_tsv_event(int64_t ms, ht_probe_event const* event) {
-    printf("%lld\t%s\t", (long long)ms, event->kind);
-    format_int_or_empty(event->channel, event->has_channel);
+static void print_tsv_event(int64_t ms, ht_midi_decoded_event const* event) {
+    printf("%lld\t%s\t", (long long)ms, ht_midi_decoded_kind_name(event->kind));
+    format_unsigned_or_empty(event->channel, event->has_channel);
     printf("\t");
-    format_int_or_empty(event->note, event->has_note);
+    format_unsigned_or_empty(event->note, event->has_note);
     printf("\t");
-    format_int_or_empty(event->velocity, event->has_velocity);
+    format_unsigned_or_empty(event->velocity, event->has_velocity);
     printf("\t");
-    format_int_or_empty(event->controller, event->has_controller);
+    format_unsigned_or_empty(event->controller, event->has_controller);
     printf("\t");
     format_int_or_empty(event->value, event->has_value);
     printf("\t0x%02X\n", event->raw_type);
 }
 
-static void print_event(ht_probe_format format, int64_t ms, snd_seq_event_t const* event) {
-    ht_probe_event decoded = decode_event(event);
-
+static void print_decoded_event(ht_probe_format format,
+                                int64_t ms,
+                                ht_midi_decoded_event const* decoded) {
     if (format == HT_PROBE_FORMAT_TSV) {
-        print_tsv_event(ms, &decoded);
+        print_tsv_event(ms, decoded);
         return;
     }
 
-    print_table_event(ms, &decoded);
+    print_table_event(ms, decoded);
+}
+
+static int print_alsa_event(ht_probe_format format, int64_t ms, snd_seq_event_t const* event) {
+    ht_midi_decoded_event decoded;
+    ht_status status;
+
+    status = decode_alsa_event(event, &decoded);
+    if (status != HT_OK) {
+        fprintf(stderr, "alsa: cannot decode event: %s\n", probe_status_name(status));
+        return 1;
+    }
+
+    print_decoded_event(format, ms, &decoded);
+    return 0;
+}
+
+static void trim_line_end(char* line) {
+    size_t length;
+
+    if (line == NULL) {
+        return;
+    }
+    length = strlen(line);
+    while ((length > 0u) && ((line[length - 1u] == '\n') || (line[length - 1u] == '\r'))) {
+        line[length - 1u] = '\0';
+        --length;
+    }
+}
+
+static bool parse_hex_byte(char const* text, unsigned char* out_byte) {
+    char* end = NULL;
+    unsigned long value;
+
+    if ((text == NULL) || (out_byte == NULL) || (text[0] == '\0') || (text[0] == '-')) {
+        return false;
+    }
+
+    errno = 0;
+    value = strtoul(text, &end, 16);
+    if ((errno != 0) || (end == text) || (*end != '\0') || (value > 0xFFul)) {
+        return false;
+    }
+
+    *out_byte = (unsigned char)value;
+    return true;
+}
+
+static bool parse_raw_bytes(char* text,
+                            unsigned char* out_bytes,
+                            size_t capacity,
+                            size_t* out_count) {
+    char* cursor = text;
+    size_t count = 0u;
+
+    if ((text == NULL) || (out_bytes == NULL) || (out_count == NULL)) {
+        return false;
+    }
+
+    while (*cursor != '\0') {
+        char* token;
+
+        while (*cursor == ' ') {
+            ++cursor;
+        }
+        if (*cursor == '\0') {
+            break;
+        }
+
+        token = cursor;
+        while ((*cursor != '\0') && (*cursor != ' ')) {
+            ++cursor;
+        }
+        if (*cursor != '\0') {
+            *cursor = '\0';
+            ++cursor;
+        }
+
+        if ((count >= capacity) || !parse_hex_byte(token, &out_bytes[count])) {
+            return false;
+        }
+        ++count;
+    }
+
+    if (count == 0u) {
+        return false;
+    }
+    *out_count = count;
+    return true;
+}
+
+static bool parse_replay_line(char* line,
+                              int64_t* out_ms,
+                              unsigned char* out_bytes,
+                              size_t capacity,
+                              size_t* out_count) {
+    char* tab;
+    long ms;
+
+    if ((line == NULL) || (out_ms == NULL) || (out_bytes == NULL) || (out_count == NULL)) {
+        return false;
+    }
+
+    tab = strchr(line, '\t');
+    if ((tab == NULL) || (strchr(tab + 1, '\t') != NULL)) {
+        return false;
+    }
+    *tab = '\0';
+    if (!parse_long(line, &ms)) {
+        return false;
+    }
+    if (!parse_raw_bytes(tab + 1, out_bytes, capacity, out_count)) {
+        return false;
+    }
+
+    *out_ms = (int64_t)ms;
+    return true;
+}
+
+static int replay_raw_tsv(ht_probe_options const* options) {
+    FILE* input;
+    char line[HT_PROBE_REPLAY_LINE_CAPACITY];
+    unsigned char raw_bytes[HT_PROBE_REPLAY_RAW_CAPACITY];
+    unsigned event_count = 0u;
+    unsigned line_number = 1u;
+
+    input = fopen(options->replay_raw_tsv_path, "r");
+    if (input == NULL) {
+        fprintf(stderr,
+                "replay: cannot open '%s': %s\n",
+                options->replay_raw_tsv_path,
+                strerror(errno));
+        return 1;
+    }
+
+    if (fgets(line, sizeof(line), input) == NULL) {
+        fprintf(stderr, "replay: missing header in '%s'\n", options->replay_raw_tsv_path);
+        fclose(input);
+        return 1;
+    }
+    trim_line_end(line);
+    if (strcmp(line, "ms\traw") != 0) {
+        fprintf(stderr, "replay: invalid header in '%s'\n", options->replay_raw_tsv_path);
+        fclose(input);
+        return 1;
+    }
+
+    if (options->format == HT_PROBE_FORMAT_TSV) {
+        print_tsv_header();
+    }
+
+    while (fgets(line, sizeof(line), input) != NULL) {
+        ht_midi_decoded_event decoded;
+        ht_status status;
+        int64_t ms;
+        size_t raw_byte_count;
+
+        ++line_number;
+        trim_line_end(line);
+        if (!parse_replay_line(line,
+                               &ms,
+                               raw_bytes,
+                               sizeof(raw_bytes) / sizeof(raw_bytes[0]),
+                               &raw_byte_count)) {
+            fprintf(stderr,
+                    "replay: invalid raw TSV line %u in '%s'\n",
+                    line_number,
+                    options->replay_raw_tsv_path);
+            fclose(input);
+            return 1;
+        }
+
+        status = ht_midi_decode_raw_event(raw_bytes, raw_byte_count, &decoded);
+        if (status != HT_OK) {
+            fprintf(stderr,
+                    "replay: cannot decode line %u in '%s': %s\n",
+                    line_number,
+                    options->replay_raw_tsv_path,
+                    probe_status_name(status));
+            fclose(input);
+            return 1;
+        }
+
+        print_decoded_event(options->format, ms, &decoded);
+        ++event_count;
+    }
+
+    if (ferror(input)) {
+        fprintf(stderr, "replay: read failed for '%s'\n", options->replay_raw_tsv_path);
+        fclose(input);
+        return 1;
+    }
+
+    fclose(input);
+    fflush(stdout);
+    fprintf(stderr, "replay: decoded %u events from %s\n", event_count, options->replay_raw_tsv_path);
+    return 0;
 }
 
 static void close_probe_context(ht_probe_context* context) {
@@ -565,7 +764,10 @@ static int drain_events(ht_probe_context* context,
             return 1;
         }
         if (event != NULL) {
-            print_event(format, monotonic_ms() - started_ms, event);
+            if (print_alsa_event(format, monotonic_ms() - started_ms, event) != 0) {
+                snd_seq_free_event(event);
+                return 1;
+            }
             ++(*event_count);
             snd_seq_free_event(event);
         }
@@ -665,6 +867,9 @@ int main(int argc, char** argv) {
     }
     if (options.list_ports) {
         return list_ports();
+    }
+    if (options.replay_raw_tsv_path != NULL) {
+        return replay_raw_tsv(&options);
     }
 
     return capture_events(&options);

@@ -75,10 +75,12 @@ For a known ALSA port, `aseqdump -p <client>:<port>` is still useful as an
 external cross-check when diagnosing driver or permissions problems.
 
 CTest also generates a synthetic Kurzweil PC4-like capture under
-`build/generated-fixtures/synthetic-pc4-capture/`. That CI fixture covers the
-same TSV schema plus aftertouch, controllers, pitchbend, program change, SysEx,
-and multiple channels. Its timestamps are synthetic and are suitable for parser
-coverage, not performance timing analysis.
+`build/generated-fixtures/synthetic-pc4-capture/`. That CI fixture emits raw
+MIDI bytes first, replays them through the compiled probe/decoder, and compares
+the resulting TSV. It covers aftertouch, controllers, pitchbend, program
+change, SysEx, `NOTEON velocity=0`, and multiple channels. Its timestamps are
+synthetic and are suitable for parser coverage, not performance timing
+analysis.
 
 ## Corpus Publication Posture
 

@@ -4,18 +4,21 @@ This directory documents the CI-generated Kurzweil PC4-like MIDI fixture used
 by `ht_pc4_fixture_schema`.
 
 The synthetic capture has no checked-in raw source trace. CTest generates the
-event stream from a deterministic pseudo-random seed and writes the resulting
-TSV and SMF files under the CMake build directory:
+event stream from a deterministic pseudo-random seed and writes the raw input,
+decoded TSV, and SMF files under the CMake build directory:
 
 ```text
 build/generated-fixtures/synthetic-pc4-capture/
+  pc4-synthetic-capture.raw.tsv
   pc4-synthetic-capture.tsv
   pc4-synthetic-capture.mid
   pc4-synthetic-capture.seed
 ```
 
 The fixed CI seed makes failures reproducible while still exercising generated
-data rather than a committed TSV or MIDI file.
+data rather than a committed TSV or MIDI file. The raw TSV is then replayed
+through the compiled `ht_midi_probe`, so the checked behavior depends on the C
+decoder instead of Python-only expectations.
 
 ## Generated Coverage
 
@@ -34,6 +37,14 @@ The generated timestamps are synthetic session-relative milliseconds. They are
 valid for parser and schema coverage, not performance timing analysis.
 
 ## TSV Schema
+
+The raw replay input is:
+
+```text
+ms<TAB>raw
+```
+
+The `raw` column contains uppercase hexadecimal MIDI bytes separated by spaces.
 
 The generated TSV matches `ht_midi_probe --format tsv`:
 

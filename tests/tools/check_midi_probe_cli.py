@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import argparse
+import pathlib
 import subprocess
+import tempfile
 
 
 EX_USAGE = 64
@@ -48,6 +50,22 @@ def main() -> int:
     completed = run_case(args.probe, ["--port", "not-a-port:0", "--duration", "1", "--format", "table"])
     require(completed.returncode == 1, "malformed or unavailable ALSA port should be runtime error")
     require("alsa:" in completed.stderr, "runtime ALSA failure should be reported on stderr")
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        raw_tsv = pathlib.Path(tmp_dir) / "raw.tsv"
+        raw_tsv.write_text("ms\traw\n0\t90 3C 40\n5\t90 3C 00\n", encoding="utf-8")
+        completed = run_case(args.probe, ["--replay-raw-tsv", str(raw_tsv), "--format", "tsv"])
+        require(completed.returncode == 0, "raw replay should not require ALSA hardware")
+        require("0\tnote_on\t1\t60\t64\t\t\t0x90\n" in completed.stdout,
+                "raw replay should decode note-on")
+        require("5\tnote_off\t1\t60\t0\t\t\t0x90\n" in completed.stdout,
+                "raw replay should normalize NOTEON velocity zero")
+
+        completed = run_case(
+            args.probe,
+            ["--replay-raw-tsv", str(raw_tsv), "--port", "24:0", "--format", "tsv"],
+        )
+        require(completed.returncode == EX_USAGE, "raw replay should reject capture options")
 
     return 0
 

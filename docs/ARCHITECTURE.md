@@ -116,12 +116,14 @@ or add public headers.
 visibility and event decoding before `midi_capture` is enabled for live
 hardware. It writes event rows to stdout, status and errors to stderr, does not
 write SQLite, and leaves `ht_midi_capture_start` in its current unsupported
-state.
+state. The private `src/midi_decode.c` module owns raw MIDI byte normalization
+for the probe and fixture tests without adding a public ABI entry point.
 
 `ht_pc4_fixture_schema` is the first synthetic diagnostic fixture for this
 tooling lane. CTest generates a Kurzweil PC4-like raw capture in the build
-directory, writes the `ht_midi_probe --format tsv` shape and an SMF file, and
-uses them for decode/schema coverage only, not timing analysis.
+directory, replays raw bytes through the compiled `ht_midi_probe`, writes the
+decoded `ht_midi_probe --format tsv` shape and an SMF file, and uses them for
+decode/schema coverage only, not timing analysis.
 
 Tool sources use the same seven-section companion-document shape as `src/*.c`
 and `tests/*.c`; CTest enforces this for `tools/*.c`.

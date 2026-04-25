@@ -4,10 +4,12 @@ import dataclasses
 import pathlib
 import random
 import struct
+import subprocess
 from collections.abc import Iterable, Sequence
 
 
 TSV_HEADER = ("ms", "kind", "channel", "note", "velocity", "controller", "value", "raw_type")
+RAW_TSV_HEADER = ("ms", "raw")
 DEFAULT_SEED = 20260425
 DEFAULT_TICKS_PER_QUARTER = 1000
 DEFAULT_BPM = 60
@@ -212,6 +214,13 @@ def render_tsv(events: Sequence[MidiEvent]) -> str:
     return "\n".join("\t".join(row) for row in tsv_rows(events)) + "\n"
 
 
+def render_raw_tsv(events: Sequence[MidiEvent]) -> str:
+    rows = ["\t".join(RAW_TSV_HEADER)]
+    for event in events:
+        rows.append(f"{event.ms}\t{' '.join(f'{byte:02X}' for byte in event.raw)}")
+    return "\n".join(rows) + "\n"
+
+
 def encode_varlen(value: int) -> bytes:
     require(value >= 0, "MIDI delta ticks must not be negative")
     buffer = value & 0x7F
@@ -262,12 +271,26 @@ def render_smf(events: Sequence[MidiEvent]) -> bytes:
     return header + b"MTrk" + struct.pack(">I", len(track)) + bytes(track)
 
 
-def check_generated_outputs(events: Sequence[MidiEvent], tsv_text: str, smf: bytes) -> None:
+def check_generated_outputs(
+    events: Sequence[MidiEvent],
+    tsv_text: str,
+    raw_tsv_text: str,
+    smf: bytes,
+) -> None:
     lines = tsv_text.splitlines()
     require(lines[0] == "\t".join(TSV_HEADER), "generated TSV header should match ht_midi_probe")
     require(len(lines) == len(events) + 1, "generated TSV should contain one row per event")
     for line_number, line in enumerate(lines[1:], start=2):
         require(len(line.split("\t")) == len(TSV_HEADER), f"line {line_number} should have 8 columns")
+
+    raw_lines = raw_tsv_text.splitlines()
+    require(raw_lines[0] == "\t".join(RAW_TSV_HEADER), "generated raw TSV header should match replay")
+    require(len(raw_lines) == len(events) + 1, "generated raw TSV should contain one row per event")
+    for line_number, line in enumerate(raw_lines[1:], start=2):
+        columns = line.split("\t")
+        require(len(columns) == len(RAW_TSV_HEADER), f"raw line {line_number} should have 2 columns")
+        require(columns[0].isdigit(), f"raw line {line_number} should start with milliseconds")
+        require(columns[1], f"raw line {line_number} should contain raw bytes")
 
     require(smf[:4] == b"MThd", "generated SMF should start with MThd")
     require(struct.unpack(">I", smf[4:8])[0] == 6, "generated SMF header length should be 6")
@@ -319,22 +342,43 @@ def check_summary(events: Sequence[MidiEvent]) -> None:
 def write_outputs(out_dir: pathlib.Path, events: Sequence[MidiEvent], seed: int) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     tsv_text = render_tsv(events)
+    raw_tsv_text = render_raw_tsv(events)
     smf = render_smf(events)
-    check_generated_outputs(events, tsv_text, smf)
+    check_generated_outputs(events, tsv_text, raw_tsv_text, smf)
     check_summary(events)
+    (out_dir / "pc4-synthetic-capture.raw.tsv").write_text(raw_tsv_text, encoding="utf-8")
     (out_dir / "pc4-synthetic-capture.tsv").write_text(tsv_text, encoding="utf-8")
     (out_dir / "pc4-synthetic-capture.mid").write_bytes(smf)
     (out_dir / "pc4-synthetic-capture.seed").write_text(f"{seed}\n", encoding="utf-8")
+
+
+def check_probe_replay(probe: pathlib.Path, out_dir: pathlib.Path) -> None:
+    raw_tsv_path = out_dir / "pc4-synthetic-capture.raw.tsv"
+    expected_tsv_path = out_dir / "pc4-synthetic-capture.tsv"
+    completed = subprocess.run(
+        [str(probe), "--replay-raw-tsv", str(raw_tsv_path), "--format", "tsv"],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    require(completed.returncode == 0, f"probe replay should exit 0, stderr: {completed.stderr}")
+    expected = expected_tsv_path.read_text(encoding="utf-8")
+    require(completed.stdout == expected, "probe replay TSV should match generated expectation")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out-dir", required=True)
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
+    parser.add_argument("--probe")
     args = parser.parse_args()
 
+    out_dir = pathlib.Path(args.out_dir)
     events = generate_capture(args.seed)
-    write_outputs(pathlib.Path(args.out_dir), events, args.seed)
+    write_outputs(out_dir, events, args.seed)
+    if args.probe is not None:
+        check_probe_replay(pathlib.Path(args.probe), out_dir)
     return 0
 
 
