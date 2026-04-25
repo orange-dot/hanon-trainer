@@ -20,6 +20,10 @@ data rather than a committed TSV or MIDI file. The raw TSV is then replayed
 through the compiled `ht_midi_probe`, so the checked behavior depends on the C
 decoder instead of Python-only expectations.
 
+CI runs the generator with `--verbose`, which prints the seed, artifact paths,
+event counts, covered status classes, sample raw rows, sample decoded rows, and
+the compiled probe replay result.
+
 ## Generated Coverage
 
 The generator emits a PC4-like raw MIDI capture with:

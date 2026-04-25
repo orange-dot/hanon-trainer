@@ -15,6 +15,16 @@ DEFAULT_TICKS_PER_QUARTER = 1000
 DEFAULT_BPM = 60
 
 
+@dataclasses.dataclass(frozen=True)
+class CaptureStats:
+    kind_counts: dict[str, int]
+    controllers: set[int]
+    channels: set[int]
+    raw_types: set[str]
+    note_on_velocity_zero_count: int
+    aftertouch_peak_count: int
+
+
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise AssertionError(message)
@@ -301,7 +311,7 @@ def check_generated_outputs(
     require(smf[14:18] == b"MTrk", "generated SMF should contain one MTrk chunk")
 
 
-def check_summary(events: Sequence[MidiEvent]) -> None:
+def capture_stats(events: Sequence[MidiEvent]) -> CaptureStats:
     kind_counts: dict[str, int] = {}
     controllers: set[int] = set()
     channels: set[int] = set()
@@ -321,22 +331,74 @@ def check_summary(events: Sequence[MidiEvent]) -> None:
         if event.kind == "chanpress" and event.value == 0x7F:
             aftertouch_peak_count += 1
 
+    return CaptureStats(
+        kind_counts=kind_counts,
+        controllers=controllers,
+        channels=channels,
+        raw_types=raw_types,
+        note_on_velocity_zero_count=note_on_velocity_zero_count,
+        aftertouch_peak_count=aftertouch_peak_count,
+    )
+
+
+def check_summary(events: Sequence[MidiEvent]) -> None:
+    stats = capture_stats(events)
+
     require(len(events) >= 30, "synthetic capture should contain a non-trivial event stream")
-    require(kind_counts.get("note_on", 0) >= 4, "synthetic capture should include note-on events")
-    require(kind_counts.get("note_off", 0) >= 4, "synthetic capture should include note-off events")
-    require(kind_counts.get("chanpress", 0) >= 10, "synthetic capture should include aftertouch")
-    require(kind_counts.get("controller", 0) >= 3, "synthetic capture should include controllers")
-    require(kind_counts.get("pitchbend", 0) >= 1, "synthetic capture should include pitchbend")
-    require(kind_counts.get("pgmchange", 0) >= 1, "synthetic capture should include program change")
-    require(kind_counts.get("keypress", 0) >= 1, "synthetic capture should include poly aftertouch")
-    require(kind_counts.get("sysex", 0) >= 1, "synthetic capture should include SysEx")
-    require(1 in controllers, "synthetic capture should include mod wheel CC1")
-    require(64 in controllers, "synthetic capture should include sustain CC64")
-    require(channels == {1, 2}, "synthetic capture should include two user MIDI channels")
-    require(aftertouch_peak_count >= 2, "synthetic capture should include aftertouch peaks at 0x7F")
-    require(note_on_velocity_zero_count >= 1, "synthetic capture should cover note-on velocity zero")
+    require(stats.kind_counts.get("note_on", 0) >= 4, "synthetic capture should include note-on events")
+    require(stats.kind_counts.get("note_off", 0) >= 4, "synthetic capture should include note-off events")
+    require(stats.kind_counts.get("chanpress", 0) >= 10, "synthetic capture should include aftertouch")
+    require(stats.kind_counts.get("controller", 0) >= 3, "synthetic capture should include controllers")
+    require(stats.kind_counts.get("pitchbend", 0) >= 1, "synthetic capture should include pitchbend")
+    require(stats.kind_counts.get("pgmchange", 0) >= 1, "synthetic capture should include program change")
+    require(stats.kind_counts.get("keypress", 0) >= 1, "synthetic capture should include poly aftertouch")
+    require(stats.kind_counts.get("sysex", 0) >= 1, "synthetic capture should include SysEx")
+    require(1 in stats.controllers, "synthetic capture should include mod wheel CC1")
+    require(64 in stats.controllers, "synthetic capture should include sustain CC64")
+    require(stats.channels == {1, 2}, "synthetic capture should include two user MIDI channels")
+    require(stats.aftertouch_peak_count >= 2, "synthetic capture should include aftertouch peaks at 0x7F")
+    require(stats.note_on_velocity_zero_count >= 1,
+            "synthetic capture should cover note-on velocity zero")
     for raw_type in {"0x80", "0x90", "0xA0", "0xB0", "0xC0", "0xD0", "0xE0", "0xF0"}:
-        require(raw_type in raw_types, f"synthetic capture should include {raw_type}")
+        require(raw_type in stats.raw_types, f"synthetic capture should include {raw_type}")
+
+
+def line_count(path: pathlib.Path) -> int:
+    return len(path.read_text(encoding="utf-8").splitlines())
+
+
+def describe_generated_outputs(out_dir: pathlib.Path, events: Sequence[MidiEvent], seed: int) -> None:
+    stats = capture_stats(events)
+    raw_tsv_path = out_dir / "pc4-synthetic-capture.raw.tsv"
+    tsv_path = out_dir / "pc4-synthetic-capture.tsv"
+    smf_path = out_dir / "pc4-synthetic-capture.mid"
+    seed_path = out_dir / "pc4-synthetic-capture.seed"
+    first_ms = events[0].ms if events else 0
+    last_ms = events[-1].ms if events else 0
+
+    print("== synthetic PC4 capture generation ==")
+    print(f"seed: {seed}")
+    print(f"out_dir: {out_dir}")
+    print(f"events: {len(events)}")
+    print(f"timestamp range ms: {first_ms}..{last_ms}")
+    print(f"channels: {', '.join(str(channel) for channel in sorted(stats.channels))}")
+    print(f"raw status classes: {', '.join(sorted(stats.raw_types))}")
+    print(f"controllers: {', '.join(f'CC{controller}' for controller in sorted(stats.controllers))}")
+    print(f"note-on velocity zero events: {stats.note_on_velocity_zero_count}")
+    print(f"aftertouch 0x7F peaks: {stats.aftertouch_peak_count}")
+    print("kind counts:")
+    for kind in sorted(stats.kind_counts):
+        print(f"  {kind}: {stats.kind_counts[kind]}")
+    print("artifacts:")
+    for path in (raw_tsv_path, tsv_path, smf_path, seed_path):
+        suffix = f", {line_count(path)} lines" if path.suffix == ".tsv" else ""
+        print(f"  {path} ({path.stat().st_size} bytes{suffix})")
+    print("raw TSV sample:")
+    for row in render_raw_tsv(events).splitlines()[0:6]:
+        print(f"  {row}")
+    print("decoded TSV sample:")
+    for row in render_tsv(events).splitlines()[0:6]:
+        print(f"  {row}")
 
 
 def write_outputs(out_dir: pathlib.Path, events: Sequence[MidiEvent], seed: int) -> None:
@@ -352,19 +414,32 @@ def write_outputs(out_dir: pathlib.Path, events: Sequence[MidiEvent], seed: int)
     (out_dir / "pc4-synthetic-capture.seed").write_text(f"{seed}\n", encoding="utf-8")
 
 
-def check_probe_replay(probe: pathlib.Path, out_dir: pathlib.Path) -> None:
+def check_probe_replay(probe: pathlib.Path, out_dir: pathlib.Path, verbose: bool) -> None:
     raw_tsv_path = out_dir / "pc4-synthetic-capture.raw.tsv"
     expected_tsv_path = out_dir / "pc4-synthetic-capture.tsv"
+    command = [str(probe), "--replay-raw-tsv", str(raw_tsv_path), "--format", "tsv"]
     completed = subprocess.run(
-        [str(probe), "--replay-raw-tsv", str(raw_tsv_path), "--format", "tsv"],
+        command,
         text=True,
         capture_output=True,
         check=False,
     )
 
+    if verbose:
+        print("== compiled probe replay ==")
+        print(f"command: {' '.join(command)}")
+        print(f"exit_code: {completed.returncode}")
+        if completed.stderr.strip():
+            print("stderr:")
+            for line in completed.stderr.strip().splitlines():
+                print(f"  {line}")
+
     require(completed.returncode == 0, f"probe replay should exit 0, stderr: {completed.stderr}")
     expected = expected_tsv_path.read_text(encoding="utf-8")
     require(completed.stdout == expected, "probe replay TSV should match generated expectation")
+    if verbose:
+        print(f"stdout comparison: exact match ({len(expected.splitlines()) - 1} decoded events)")
+        print("result: generated raw bytes exercised the compiled MIDI decoder")
 
 
 def main() -> int:
@@ -372,13 +447,16 @@ def main() -> int:
     parser.add_argument("--out-dir", required=True)
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     parser.add_argument("--probe")
+    parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
 
     out_dir = pathlib.Path(args.out_dir)
     events = generate_capture(args.seed)
     write_outputs(out_dir, events, args.seed)
+    if args.verbose:
+        describe_generated_outputs(out_dir, events, args.seed)
     if args.probe is not None:
-        check_probe_replay(pathlib.Path(args.probe), out_dir)
+        check_probe_replay(pathlib.Path(args.probe), out_dir, args.verbose)
     return 0
 
 
