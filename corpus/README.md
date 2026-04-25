@@ -19,5 +19,14 @@ Generated runtime score assets under `corpus/runtime/assets/` are also ignored
 by default. They are source-derived build artifacts until a later release policy
 decides otherwise.
 
+Tracked corpus files currently include:
+
+- `catalog/variants.tsv`: source-derived variant metadata; the only production
+  row is `hanon-01-c` at `asset_only`
+- `overlays/overlay_metadata.tsv`: header-only production overlay schema
+- `overlays/overlay_steps.tsv`: header-only production overlay-step schema
+- `manual-input/templates/`: header-only TSV templates for reviewed manual
+  overlay and MIDI fixture entry
+
 The source PDFs, score layouts, site images, and site text are third-party
 source material and are not relicensed by this repository.

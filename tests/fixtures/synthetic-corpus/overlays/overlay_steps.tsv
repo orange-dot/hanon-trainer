@@ -1,0 +1,3 @@
+overlay_id	step_index	page_index	x	y	width	height	keyboard_target	finger_label	step_note	expected_pitches	timing_window_ms
+fixture-overlay-001	0	0	10	20	30	40	C4	1	synthetic step 0	60	50
+fixture-overlay-001	1	0	50	60	30	40	D4	2	synthetic step 1	62	50

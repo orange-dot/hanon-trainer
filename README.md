@@ -1,16 +1,46 @@
 # hanon-trainer
 
-Documentation-only architecture and local implementation spec pack for a local
-Linux-native Hanon practice and teaching app in `C`.
+Local Linux-native Hanon practice and teaching app in `C`.
 
 ## Status
 
-This repo currently contains no implementation code.
+The repo now contains the first C vertical slice up to, but not including,
+manual Hanon overlay input.
 
-The pack now fixes the first-build direction for a local-first application with
-MIDI capture, post-session teaching analysis, and explicit local Codex CLI
-assistance. The remaining questions are non-blocking follow-up items rather
-than core architecture gaps.
+Current implementation status:
+
+- C11 CMake/CTest scaffold
+- C ABI-style public headers with opaque handles, `ht_status`, fixed transfer
+  records, and independent header compilation checks
+- TSV-backed catalog loader with one real `hanon-01-c` asset-only row
+- TSV-backed overlay loader with header-only production schema and synthetic
+  fixtures
+- SQLite migration and local store APIs for state, sessions, MIDI events,
+  analysis, step results, and advice artifacts
+- synthetic post-session pitch/timing analysis over persisted MIDI events
+- local Codex advice orchestration stub returning `HT_GENERATION_STUBBED`
+- SDL2/SDL_ttf and ALSA compile/link boundaries without opening a window or
+  requiring live MIDI hardware
+- companion source documentation checked by CTest
+
+Manual score coordinates, expected pitches, fingering, and timing windows have
+not been entered for Hanon content yet.
+
+## Build And Test
+
+```sh
+scripts/setup-dev-env.sh --verify-only
+cmake -S . -B build -G Ninja
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
+
+GitHub Actions runs the same native setup/build/test path for pushes to
+`development` and `dev`, and for pull requests targeting `main`.
+
+If `corpus/source-pdfs/hanon-exercise-01-c.pdf` is absent in a fresh checkout,
+the asset-generation CTest is skipped. If the PDF is present locally, the test
+generates and verifies `corpus/runtime/assets/hanon-exercise-01-c.ppm`.
 
 ## Corpus Publication Posture
 
@@ -73,6 +103,8 @@ The current architecture target assumes:
 - [Sprint 001: Pilot Analysis Documentation Plan](docs/SPRINT-001-PILOT-TRAINER.md)
 - [Review: Sprint 001](docs/REVIEW-SPRINT-001.md)
 - [Backlog Refinement](docs/BACKLOG-REFINEMENT.md)
+- [Vertical Slice Pre-Manual-Input Review](docs/REVIEW-VERTICAL-SLICE-PRE-MANUAL-INPUT.md)
+- [Hanon 01 C Manual Input Checklist](docs/manual-input/hanon-01-c-checklist.md)
 - [ADR-0001: SDL2 Custom UI](docs/ADR/ADR-0001-sdl2-custom-ui.md)
 - [ADR-0002: Mirrored Image-First Score Assets](docs/ADR/ADR-0002-mirrored-score-assets.md)
 - [ADR-0003: Guide-Only V1](docs/ADR/ADR-0003-guide-only-v1.md)

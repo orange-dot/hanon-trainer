@@ -1,0 +1,2 @@
+exercise_id	variant_id	exercise_number	title	key_name	sort_order	tempo_text	repeat_text	practice_notes	source_page_path	source_pdf_path	display_asset_path	display_asset_width_px	display_asset_height_px	overlay_id	support_level
+fixture-exercise	fixture-variant-pilot	1	Synthetic Fixture Exercise	C	1	synthetic tempo	synthetic repeat	synthetic notes	fixtures/source-page	fixtures/source.pdf	fixtures/asset.ppm	2480	3508	fixture-overlay-001	pilot_analysis
