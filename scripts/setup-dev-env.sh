@@ -7,7 +7,7 @@ Usage: scripts/setup-dev-env.sh [--verify-only]
 
 Install and verify the native development packages needed for hanon-trainer:
 C compiler, CMake, Ninja, pkg-config, SQLite development files, SDL2,
-SDL2_ttf, Poppler tools, and ALSA development files.
+SDL2_ttf, Poppler tools, ALSA development files, and ALSA MIDI utilities.
 
 Options:
   --verify-only    Do not install packages; only run environment checks.
@@ -64,6 +64,7 @@ install_packages() {
       SDL2_ttf-devel \
       poppler-utils \
       alsa-lib-devel \
+      alsa-utils \
       git \
       which
     return 0
@@ -82,6 +83,7 @@ install_packages() {
       libsdl2-ttf-dev \
       poppler-utils \
       libasound2-dev \
+      alsa-utils \
       git
     return 0
   fi
@@ -97,6 +99,7 @@ install_packages() {
       sdl2_ttf \
       poppler \
       alsa-lib \
+      alsa-utils \
       git
     return 0
   fi
@@ -114,6 +117,7 @@ install_packages() {
       libSDL2_ttf-devel \
       poppler-tools \
       alsa-devel \
+      alsa-utils \
       git \
       which
     return 0
@@ -129,6 +133,7 @@ Install these packages manually:
   SDL2_ttf development headers,
   poppler-utils / pdftoppm,
   ALSA development headers,
+  ALSA MIDI utilities / aconnect / aseqdump,
   git.
 ERROR
   exit 1
@@ -162,7 +167,7 @@ verify_environment() {
   failures=0
 
   echo "== commands =="
-  for cmd in cc cmake ninja pkg-config pdftoppm sqlite3; do
+  for cmd in cc cmake ninja pkg-config pdftoppm sqlite3 aconnect aseqdump; do
     if need_cmd "$cmd"; then
       echo "$cmd: ok"
     else
@@ -176,6 +181,8 @@ verify_environment() {
   command -v ninja >/dev/null 2>&1 && ninja --version
   command -v pdftoppm >/dev/null 2>&1 && pdftoppm -v 2>&1 | sed -n '1p'
   command -v sqlite3 >/dev/null 2>&1 && sqlite3 --version | sed -n '1p'
+  command -v aconnect >/dev/null 2>&1 && printf 'aconnect: %s\n' "$(command -v aconnect)"
+  command -v aseqdump >/dev/null 2>&1 && printf 'aseqdump: %s\n' "$(command -v aseqdump)"
 
   echo "== pkg-config =="
   if command -v pkg-config >/dev/null 2>&1; then
@@ -218,7 +225,8 @@ int main(void) {
   echo "SDL2/SDL2_ttf compile probe: ok"
 
   compile_probe alsa "$alsa_cflags" "$alsa_libs" \
-    '#define _POSIX_C_SOURCE 200809L
+    '#define _DEFAULT_SOURCE
+#define _POSIX_C_SOURCE 200809L
 #include <alsa/asoundlib.h>
 int main(void) {
   return SND_SEQ_OPEN_INPUT >= 0 ? 0 : 1;

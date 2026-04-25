@@ -106,6 +106,26 @@ program and does not define library ownership.
 - Source-derived corpus assets remain read-only at runtime. All user-generated
   state goes through SQLite, never back into the mirrored corpus.
 
+## Diagnostic Tools
+
+Standalone command-line diagnostics live under `tools/`. They may talk directly
+to volatile platform APIs, but they do not extend the public C library surface
+or add public headers.
+
+`tools/ht_midi_probe.c` is the first such tool. It validates ALSA sequencer
+visibility and event decoding before `midi_capture` is enabled for live
+hardware. It writes event rows to stdout, status and errors to stderr, does not
+write SQLite, and leaves `ht_midi_capture_start` in its current unsupported
+state.
+
+`tests/fixtures/synthetic-pc4-capture` is the first diagnostic fixture for this
+tooling lane. It preserves a screenshot-derived Kurzweil PC4 channel-pressure
+trace in the `ht_midi_probe --format tsv` shape and is intentionally used for
+decode/schema coverage only, not timing analysis.
+
+Tool sources use the same seven-section companion-document shape as `src/*.c`
+and `tests/*.c`; CTest enforces this for `tools/*.c`.
+
 ## Runtime Flow
 
 ```mermaid

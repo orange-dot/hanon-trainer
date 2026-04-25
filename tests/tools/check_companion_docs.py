@@ -18,6 +18,7 @@ def source_files(root: pathlib.Path) -> list[pathlib.Path]:
     files: list[pathlib.Path] = []
     files.extend(sorted((root / "include").glob("hanon_trainer/**/*.h")))
     files.extend(sorted((root / "src").glob("*.c")))
+    files.extend(sorted((root / "tools").glob("*.c")))
     files.extend(sorted((root / "tests").glob("*.c")))
     return files
 

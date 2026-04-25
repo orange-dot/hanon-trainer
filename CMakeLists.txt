@@ -63,6 +63,18 @@ target_link_libraries(hanon_trainer
     ${ALSA_LIBRARIES}
 )
 
+add_executable(ht_midi_probe tools/ht_midi_probe.c)
+target_include_directories(ht_midi_probe PRIVATE ${ALSA_INCLUDE_DIRS})
+target_compile_definitions(ht_midi_probe
+  PRIVATE
+    _DEFAULT_SOURCE
+    _POSIX_C_SOURCE=200809L
+    HT_PROJECT_VERSION="${PROJECT_VERSION}"
+)
+target_compile_options(ht_midi_probe PRIVATE -Wall -Wextra -Wpedantic)
+target_link_directories(ht_midi_probe PRIVATE ${ALSA_LIBRARY_DIRS})
+target_link_libraries(ht_midi_probe PRIVATE ${ALSA_LIBRARIES})
+
 function(ht_add_c_test name source)
   add_executable(${name} ${source})
   target_link_libraries(${name} PRIVATE hanon_trainer)
@@ -105,6 +117,20 @@ add_test(
   COMMAND ${Python3_EXECUTABLE}
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/tools/check_companion_docs.py
     --root ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+add_test(
+  NAME ht_midi_probe_cli
+  COMMAND ${Python3_EXECUTABLE}
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/tools/check_midi_probe_cli.py
+    --probe $<TARGET_FILE:ht_midi_probe>
+)
+
+add_test(
+  NAME ht_pc4_fixture_schema
+  COMMAND ${Python3_EXECUTABLE}
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/tools/check_pc4_fixture_schema.py
+    --fixture-dir ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/synthetic-pc4-capture
 )
 
 add_test(
