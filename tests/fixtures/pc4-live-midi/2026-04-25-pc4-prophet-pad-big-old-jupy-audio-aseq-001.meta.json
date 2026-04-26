@@ -1,0 +1,52 @@
+{
+  "channels": [
+    1
+  ],
+  "controller_counts": {
+    "0": 26,
+    "1": 313,
+    "12": 67,
+    "13": 49,
+    "28": 11,
+    "32": 26,
+    "64": 24
+  },
+  "duration_manifest_s": "120.0",
+  "duration_midi_s": "119.986979167",
+  "duration_ms": 119987,
+  "event_count": 2447,
+  "export_note": "Sanitized MIDI-only fixture exported from local PC4 lab evidence. WAV, pcap, and manifest data lake files are intentionally excluded.",
+  "keeper": "yes",
+  "manifest_status": "captured",
+  "probe_kind_counts": {
+    "chanpress": 359,
+    "controller": 516,
+    "note_off": 204,
+    "note_on": 206,
+    "pgmchange": 26,
+    "pitchbend": 1136
+  },
+  "quality_class": "clean_keeper",
+  "raw_type_counts": {
+    "0x80": 204,
+    "0x90": 206,
+    "0xB0": 516,
+    "0xC0": 26,
+    "0xD0": 359,
+    "0xE0": 1136
+  },
+  "schema": "pc4-live-midi-raw-tsv-v1",
+  "source_files": [
+    {
+      "file": "2026-04-25-pc4-prophet-pad-big-old-jupy-audio-aseq-001.aseq.mid",
+      "lab_relative_path": "synthetic-pc4-capture/real-captures/2026-04-25-pc4-prophet-pad-big-old-jupy-audio-aseq-001.aseq.mid",
+      "sha256": "edac0702225396cc4e50487572c86ed0c47dbc4a9c2b957db91709fc2b8957a6",
+      "size_bytes": 7574
+    }
+  ],
+  "source_layer_counts": {
+    "aseq_mid": 2447
+  },
+  "source_root": "synthetic-pc4-capture/derived",
+  "source_take_id": "2026-04-25-pc4-prophet-pad-big-old-jupy-audio-aseq-001"
+}

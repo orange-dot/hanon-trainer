@@ -82,6 +82,13 @@ change, SysEx, `NOTEON velocity=0`, and multiple channels. Its timestamps are
 synthetic and are suitable for parser coverage, not performance timing
 analysis.
 
+CTest and CI also replay real-derived, MIDI-only PC4 take fixtures from
+`tests/fixtures/pc4-live-midi/`. These fixtures are exported from local lab
+captures without committing WAV, pcap, or full capture-manifest data. The set
+includes 12 non-empty takes with 9,945 events total, including the 230 second
+`2026-04-26-pc4-tui-002` keeper. They exercise the same compiled
+`ht_midi_probe` raw replay path as the generated synthetic fixture.
+
 ## Corpus Publication Posture
 
 The source PDFs are mirrored from [Hanon-Online](https://www.hanon-online.com/).
