@@ -1,0 +1,42 @@
+{
+  "channels": [
+    1
+  ],
+  "controller_counts": {
+    "64": 17
+  },
+  "duration_manifest_s": "30.0",
+  "duration_midi_s": "29.919270833",
+  "duration_ms": 29919,
+  "event_count": 265,
+  "export_note": "Sanitized MIDI-only fixture exported from local PC4 lab evidence. WAV, pcap, and manifest data lake files are intentionally excluded.",
+  "keeper": "no",
+  "manifest_status": "needs_review",
+  "probe_kind_counts": {
+    "chanpress": 64,
+    "controller": 17,
+    "note_off": 91,
+    "note_on": 93
+  },
+  "quality_class": "diagnostic_only",
+  "raw_type_counts": {
+    "0x80": 91,
+    "0x90": 93,
+    "0xB0": 17,
+    "0xD0": 64
+  },
+  "schema": "pc4-live-midi-raw-tsv-v1",
+  "source_files": [
+    {
+      "file": "2026-04-26-pc4-rhodes-free-improv-manual-002.aseq.mid",
+      "lab_relative_path": "synthetic-pc4-capture/real-captures/2026-04-26-pc4-rhodes-free-improv-manual-002.aseq.mid",
+      "sha256": "94621bc2f9fecade4e90cc45ecffe1fa42c2f157c7170f3f2cb05e10c08be555",
+      "size_bytes": 944
+    }
+  ],
+  "source_layer_counts": {
+    "aseq_mid": 265
+  },
+  "source_root": "synthetic-pc4-capture/derived",
+  "source_take_id": "2026-04-26-pc4-rhodes-free-improv-manual-002"
+}

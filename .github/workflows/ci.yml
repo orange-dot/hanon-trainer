@@ -37,5 +37,12 @@ jobs:
             --probe build/ht_midi_probe \
             --verbose
 
+      - name: Replay real-derived PC4 MIDI fixtures
+        run: |
+          python3 tests/tools/check_pc4_live_midi_fixtures.py \
+            --fixtures tests/fixtures/pc4-live-midi \
+            --probe build/ht_midi_probe \
+            --verbose
+
       - name: Test
         run: ctest --test-dir build --output-on-failure

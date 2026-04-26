@@ -1,0 +1,42 @@
+{
+  "channels": [
+    1
+  ],
+  "controller_counts": {
+    "64": 19
+  },
+  "duration_manifest_s": "30.0",
+  "duration_midi_s": "29.8984375",
+  "duration_ms": 29898,
+  "event_count": 635,
+  "export_note": "Sanitized MIDI-only fixture exported from local PC4 lab evidence. WAV, pcap, and manifest data lake files are intentionally excluded.",
+  "keeper": "yes",
+  "manifest_status": "captured",
+  "probe_kind_counts": {
+    "chanpress": 88,
+    "controller": 19,
+    "note_off": 262,
+    "note_on": 266
+  },
+  "quality_class": "clean_keeper",
+  "raw_type_counts": {
+    "0x80": 262,
+    "0x90": 266,
+    "0xB0": 19,
+    "0xD0": 88
+  },
+  "schema": "pc4-live-midi-raw-tsv-v1",
+  "source_files": [
+    {
+      "file": "2026-04-26-pc4-freetake3-001.aseq.mid",
+      "lab_relative_path": "synthetic-pc4-capture/real-captures/2026-04-26-pc4-freetake3-001.aseq.mid",
+      "sha256": "31c796b83857295a19a75b6c639df46e12f9af2ba3306806358828bde4a1f54f",
+      "size_bytes": 2247
+    }
+  ],
+  "source_layer_counts": {
+    "aseq_mid": 635
+  },
+  "source_root": "synthetic-pc4-capture/derived",
+  "source_take_id": "2026-04-26-pc4-freetake3-001"
+}

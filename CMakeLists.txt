@@ -151,6 +151,14 @@ add_test(
 )
 
 add_test(
+  NAME ht_pc4_live_midi_fixtures
+  COMMAND ${Python3_EXECUTABLE}
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/tools/check_pc4_live_midi_fixtures.py
+    --fixtures ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/pc4-live-midi
+    --probe $<TARGET_FILE:ht_midi_probe>
+)
+
+add_test(
   NAME ht_asset_generation
   COMMAND ${Python3_EXECUTABLE}
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/tools/check_asset_generation.py
