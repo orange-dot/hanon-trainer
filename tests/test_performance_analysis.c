@@ -91,6 +91,14 @@ int main(void) {
     assert(analysis.max_late_ms == 120);
     assert(analysis.weak_step_count == 1u);
 
+    analyze_case(catalog, overlays, "midpoint-ownership-session", 60u, 490000000, true, 510000000, &analysis);
+    assert(analysis.wrong_note_count == 0u);
+    assert(analysis.missed_note_count == 0u);
+    assert(analysis.extra_note_count == 0u);
+    assert(analysis.max_late_ms == 490);
+    assert(analysis.max_early_ms == 490);
+    assert(analysis.weak_step_count == 2u);
+
     ht_overlay_store_close(overlays);
     ht_catalog_close(catalog);
     return 0;

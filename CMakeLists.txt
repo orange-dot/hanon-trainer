@@ -151,6 +151,7 @@ ht_add_c_test(ht_test_catalog tests/test_catalog.c)
 ht_add_c_test(ht_test_overlay_store tests/test_overlay_store.c)
 ht_add_c_test(ht_test_sqlite_store tests/test_sqlite_store.c)
 ht_add_c_test(ht_test_performance_analysis tests/test_performance_analysis.c)
+ht_add_c_test(ht_test_hanon_01c_pilot_analysis tests/test_hanon_01c_pilot_analysis.c)
 ht_add_c_test(ht_test_advice_orchestrator tests/test_advice_orchestrator.c)
 ht_add_c_test(ht_test_platform_boundaries tests/test_platform_boundaries.c)
 

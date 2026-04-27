@@ -1,1 +1,9 @@
 overlay_id	step_index	page_index	x	y	width	height	keyboard_target	finger_label	step_note	expected_pitches	timing_window_ms
+hanon-01-c-pilot-001	0	0	475	620	70	255	C3+C4		first measure ascent step 1	48 60	80
+hanon-01-c-pilot-001	1	0	550	600	70	275	D3+D4		first measure ascent step 2	50 62	80
+hanon-01-c-pilot-001	2	0	625	585	70	290	E3+E4		first measure ascent step 3	52 64	80
+hanon-01-c-pilot-001	3	0	700	565	70	310	F3+F4		first measure ascent step 4	53 65	80
+hanon-01-c-pilot-001	4	0	775	545	70	330	G3+G4		first measure peak step	55 67	80
+hanon-01-c-pilot-001	5	0	850	565	70	310	F3+F4		first measure descent step 1	53 65	80
+hanon-01-c-pilot-001	6	0	925	585	70	290	E3+E4		first measure descent step 2	52 64	80
+hanon-01-c-pilot-001	7	0	1000	600	70	275	D3+D4		first measure descent step 3	50 62	80

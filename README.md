@@ -4,28 +4,30 @@ Local Hanon practice and teaching app in `C`.
 
 ## Status
 
-The repo now contains the first C vertical slice up to, but not including,
-manual Hanon overlay input.
+The repo now contains the first C vertical slice with bounded Hanon 01C pilot
+analysis data.
 
 Current implementation status:
 
 - C11 CMake/CTest scaffold
 - C ABI-style public headers with opaque handles, `ht_status`, fixed transfer
   records, and independent header compilation checks
-- TSV-backed catalog loader with one real `hanon-01-c` asset-only row
-- TSV-backed overlay loader with header-only production schema and synthetic
-  fixtures
+- TSV-backed catalog loader with one real `hanon-01-c` `pilot_analysis` row
+- TSV-backed overlay loader with the first reviewed production overlay and
+  synthetic fixtures
 - SQLite migration and local store APIs for state, sessions, MIDI events,
   analysis, step results, and advice artifacts
-- synthetic post-session pitch/timing analysis over persisted MIDI events
+- post-session pitch/timing analysis over persisted MIDI events, including
+  two-hand pitch groups for the first Hanon 01C pilot passage
 - local Codex advice orchestration stub returning `HT_GENERATION_STUBBED`
 - SDL2/SDL_ttf and native MIDI compile/link boundaries without opening a
   window or requiring live MIDI hardware
 - standalone MIDI hardware probe for local keyboard smoke testing
 - companion source documentation checked by CTest
 
-Manual score coordinates, expected pitches, fingering, and timing windows have
-not been entered for Hanon content yet.
+The first Hanon 01C passage has reviewed score coordinates, expected pitch
+groups, and timing windows. Full-exercise coverage and fingering-aware scoring
+remain outside this slice.
 
 ## Build And Test
 
