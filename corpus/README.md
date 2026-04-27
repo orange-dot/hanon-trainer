@@ -22,9 +22,11 @@ decides otherwise.
 Tracked corpus files currently include:
 
 - `catalog/variants.tsv`: source-derived variant metadata; the only production
-  row is `hanon-01-c` at `asset_only`
-- `overlays/overlay_metadata.tsv`: header-only production overlay schema
-- `overlays/overlay_steps.tsv`: header-only production overlay-step schema
+  row is `hanon-01-c` at `pilot_analysis`
+- `overlays/overlay_metadata.tsv`: production overlay metadata for the bounded
+  `hanon-01-c-pilot-001` passage
+- `overlays/overlay_steps.tsv`: eight first-measure two-hand pitch-group steps
+  for `hanon-01-c-pilot-001`
 - `manual-input/templates/`: header-only TSV templates for reviewed manual
   overlay and MIDI fixture entry
 

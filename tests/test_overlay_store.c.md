@@ -4,7 +4,7 @@
 Verifies overlay store empty, valid, and malformed input behavior.
 
 ## Theory
-Production overlay files can exist as header-only schemas before manual input; malformed present data must fail.
+Production overlay files now carry the first bounded Hanon 01C passage; malformed present data must fail.
 
 ## Architecture Role
 This test guards the `overlay_store` boundary before analysis depends on it.
@@ -16,7 +16,7 @@ The test uses `<assert.h>` and one `int main(void)` executable.
 Each opened store is closed. A failed open must leave the output handle NULL.
 
 ## Test Strategy
-It covers production empty schema, synthetic valid steps, and bad metadata.
+It covers the production Hanon 01C pilot overlay, synthetic valid steps, and bad metadata.
 
 ## Spec Links
 - docs/LOCAL_SPEC.md
