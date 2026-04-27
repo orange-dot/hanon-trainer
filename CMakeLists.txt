@@ -158,10 +158,27 @@ ht_add_c_test(ht_test_sqlite_store tests/test_sqlite_store.c)
 ht_add_c_test(ht_test_performance_analysis tests/test_performance_analysis.c)
 ht_add_c_test(ht_test_hanon_01c_pilot_analysis tests/test_hanon_01c_pilot_analysis.c)
 ht_add_c_test(ht_test_score_renderer_layout tests/test_score_renderer_layout.c)
-ht_add_c_test(ht_test_score_renderer_ppm tests/test_score_renderer_ppm.c)
 ht_add_c_test(ht_test_hanon_01c_viewer_projection tests/test_hanon_01c_viewer_projection.c)
 ht_add_c_test(ht_test_advice_orchestrator tests/test_advice_orchestrator.c)
 ht_add_c_test(ht_test_platform_boundaries tests/test_platform_boundaries.c)
+
+add_executable(ht_test_score_renderer_ppm tests/test_score_renderer_ppm.c)
+target_link_libraries(ht_test_score_renderer_ppm PRIVATE hanon_trainer)
+ht_apply_warnings(ht_test_score_renderer_ppm)
+target_compile_definitions(ht_test_score_renderer_ppm PRIVATE HT_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+foreach(ppm_case
+    valid
+    missing-asset
+    bad-magic
+    bad-max
+    short-payload
+    malformed-header
+    bad-overlay-dims)
+  add_test(
+    NAME ht_test_score_renderer_ppm_${ppm_case}
+    COMMAND ht_test_score_renderer_ppm ${ppm_case}
+  )
+endforeach()
 
 add_executable(ht_test_midi_decode tests/test_midi_decode.c)
 target_link_libraries(ht_test_midi_decode PRIVATE ht_midi_decode)

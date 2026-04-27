@@ -63,12 +63,9 @@ static void assert_red_overlay_pixel(char const* path, ht_rect_record rect) {
     assert(raster[offset + 2u] == 0u);
 }
 
-int main(void) {
-    ht_score_renderer* renderer = NULL;
+static void run_valid(ht_score_renderer* renderer) {
     ht_score_renderer_view_request request;
     ht_score_renderer_view_result result;
-
-    assert(ht_score_renderer_create(&renderer) == HT_OK);
 
     make_request(&request, "viewer-valid", "viewer-valid-output.ppm");
     assert(ht_score_renderer_render_view(renderer, &request, &result) == HT_OK);
@@ -77,31 +74,86 @@ int main(void) {
     assert(result.asset_status == HT_OK);
     assert(result.render_status == HT_OK);
     assert_red_overlay_pixel("viewer-valid-output.ppm", result.active_overlay_rect);
+}
+
+static void run_missing_asset(ht_score_renderer* renderer) {
+    ht_score_renderer_view_request request;
+    ht_score_renderer_view_result result;
 
     make_request(&request, "viewer-missing-asset", "viewer-missing-output.ppm");
     assert(ht_score_renderer_render_view(renderer, &request, &result) == HT_OK);
     assert(result.asset_status == HT_ERR_NOT_FOUND);
     assert(result.render_status == HT_ERR_NOT_FOUND);
+}
+
+static void run_bad_magic(ht_score_renderer* renderer) {
+    ht_score_renderer_view_request request;
+    ht_score_renderer_view_result result;
 
     make_request(&request, "viewer-bad-magic", "viewer-bad-magic-output.ppm");
     assert(ht_score_renderer_render_view(renderer, &request, &result) == HT_ERR_UNSUPPORTED);
     assert(result.asset_status == HT_ERR_UNSUPPORTED);
+}
+
+static void run_bad_max(ht_score_renderer* renderer) {
+    ht_score_renderer_view_request request;
+    ht_score_renderer_view_result result;
 
     make_request(&request, "viewer-bad-max", "viewer-bad-max-output.ppm");
     assert(ht_score_renderer_render_view(renderer, &request, &result) == HT_ERR_UNSUPPORTED);
     assert(result.asset_status == HT_ERR_UNSUPPORTED);
+}
+
+static void run_short_payload(ht_score_renderer* renderer) {
+    ht_score_renderer_view_request request;
+    ht_score_renderer_view_result result;
 
     make_request(&request, "viewer-short-payload", "viewer-short-output.ppm");
     assert(ht_score_renderer_render_view(renderer, &request, &result) == HT_ERR_CORRUPT_DATA);
     assert(result.asset_status == HT_ERR_CORRUPT_DATA);
+}
+
+static void run_malformed_header(ht_score_renderer* renderer) {
+    ht_score_renderer_view_request request;
+    ht_score_renderer_view_result result;
 
     make_request(&request, "viewer-malformed-header", "viewer-malformed-output.ppm");
     assert(ht_score_renderer_render_view(renderer, &request, &result) == HT_ERR_CORRUPT_DATA);
     assert(result.asset_status == HT_ERR_CORRUPT_DATA);
+}
+
+static void run_bad_overlay_dims(ht_score_renderer* renderer) {
+    ht_score_renderer_view_request request;
+    ht_score_renderer_view_result result;
 
     make_request(&request, "viewer-bad-overlay-dims", "viewer-bad-dims-output.ppm");
     assert(ht_score_renderer_render_view(renderer, &request, &result) == HT_ERR_CORRUPT_DATA);
     assert(result.overlay_status == HT_ERR_CORRUPT_DATA);
+}
+
+int main(int argc, char** argv) {
+    ht_score_renderer* renderer = NULL;
+
+    assert(argc == 2);
+    assert(ht_score_renderer_create(&renderer) == HT_OK);
+
+    if (strcmp(argv[1], "valid") == 0) {
+        run_valid(renderer);
+    } else if (strcmp(argv[1], "missing-asset") == 0) {
+        run_missing_asset(renderer);
+    } else if (strcmp(argv[1], "bad-magic") == 0) {
+        run_bad_magic(renderer);
+    } else if (strcmp(argv[1], "bad-max") == 0) {
+        run_bad_max(renderer);
+    } else if (strcmp(argv[1], "short-payload") == 0) {
+        run_short_payload(renderer);
+    } else if (strcmp(argv[1], "malformed-header") == 0) {
+        run_malformed_header(renderer);
+    } else if (strcmp(argv[1], "bad-overlay-dims") == 0) {
+        run_bad_overlay_dims(renderer);
+    } else {
+        assert(false);
+    }
 
     ht_score_renderer_destroy(renderer);
     return 0;
