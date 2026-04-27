@@ -10,9 +10,9 @@ include(CTest)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 find_package(PkgConfig REQUIRED)
 
-pkg_check_modules(SQLITE3 REQUIRED sqlite3)
-pkg_check_modules(SDL2 REQUIRED sdl2)
-pkg_check_modules(SDL2_TTF REQUIRED SDL2_ttf)
+pkg_check_modules(SQLITE3 REQUIRED IMPORTED_TARGET sqlite3)
+pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
+pkg_check_modules(SDL2_TTF REQUIRED IMPORTED_TARGET SDL2_ttf)
 
 set(HT_MIDI_BACKEND "AUTO" CACHE STRING "MIDI backend: AUTO, ALSA, COREMIDI, WINMM, or FAKE")
 set_property(CACHE HT_MIDI_BACKEND PROPERTY STRINGS AUTO ALSA COREMIDI WINMM FAKE)
@@ -34,15 +34,13 @@ endif()
 
 set(HT_MIDI_HAL_SOURCE "")
 set(HT_MIDI_HAL_INCLUDE_DIRS "")
-set(HT_MIDI_HAL_LIBRARY_DIRS "")
 set(HT_MIDI_HAL_LIBRARIES "")
 
 if(HT_SELECTED_MIDI_BACKEND STREQUAL "ALSA")
-  pkg_check_modules(ALSA REQUIRED alsa)
+  pkg_check_modules(ALSA REQUIRED IMPORTED_TARGET alsa)
   set(HT_MIDI_HAL_SOURCE src/midi_hal_alsa.c)
   set(HT_MIDI_HAL_INCLUDE_DIRS ${ALSA_INCLUDE_DIRS})
-  set(HT_MIDI_HAL_LIBRARY_DIRS ${ALSA_LIBRARY_DIRS})
-  set(HT_MIDI_HAL_LIBRARIES ${ALSA_LIBRARIES})
+  set(HT_MIDI_HAL_LIBRARIES PkgConfig::ALSA)
 elseif(HT_SELECTED_MIDI_BACKEND STREQUAL "COREMIDI")
   find_library(COREMIDI_LIBRARY CoreMIDI REQUIRED)
   find_library(COREFOUNDATION_LIBRARY CoreFoundation REQUIRED)
@@ -93,7 +91,6 @@ target_include_directories(ht_midi_hal
   PRIVATE
     ${HT_MIDI_HAL_INCLUDE_DIRS}
 )
-target_link_directories(ht_midi_hal PRIVATE ${HT_MIDI_HAL_LIBRARY_DIRS})
 target_link_libraries(ht_midi_hal PRIVATE ${HT_MIDI_HAL_LIBRARIES})
 target_compile_definitions(ht_midi_hal PRIVATE HT_MIDI_BACKEND="${HT_SELECTED_MIDI_BACKEND}")
 ht_apply_unix_definitions(ht_midi_hal)
@@ -118,28 +115,18 @@ target_include_directories(hanon_trainer
     ${CMAKE_CURRENT_SOURCE_DIR}/include
   PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${SQLITE3_INCLUDE_DIRS}
-    ${SDL2_INCLUDE_DIRS}
-    ${SDL2_TTF_INCLUDE_DIRS}
 )
 
 ht_apply_unix_definitions(hanon_trainer)
 ht_apply_warnings(hanon_trainer)
 
-target_link_directories(hanon_trainer
-  PRIVATE
-    ${SQLITE3_LIBRARY_DIRS}
-    ${SDL2_LIBRARY_DIRS}
-    ${SDL2_TTF_LIBRARY_DIRS}
-)
-
 target_link_libraries(hanon_trainer
   PRIVATE
     ht_midi_decode
     ht_midi_hal
-    ${SQLITE3_LIBRARIES}
-    ${SDL2_LIBRARIES}
-    ${SDL2_TTF_LIBRARIES}
+    PkgConfig::SQLITE3
+    PkgConfig::SDL2
+    PkgConfig::SDL2_TTF
 )
 
 add_executable(ht_midi_probe tools/ht_midi_probe.c)

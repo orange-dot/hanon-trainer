@@ -24,7 +24,7 @@ static void assert_foreign_keys_enabled_after_reopen(void) {
     ht_db* db = NULL;
     ht_midi_event_record orphan_event = {0};
 
-    snprintf(database_path, sizeof(database_path), "%s", "/tmp/hanon-trainer-fk-test.sqlite");
+    snprintf(database_path, sizeof(database_path), "%s", "hanon-trainer-fk-test.sqlite");
     remove(database_path);
 
     assert(ht_db_open(&db, database_path) == HT_OK);
