@@ -10,7 +10,7 @@ The viewer pilot depends on deterministic P6 PPM assets and should reject malfor
 This test guards the private PPM/render path through the public `score_renderer` API.
 
 ## Implementation Contract
-The executable accepts one case name argument so CTest can report the exact PPM scenario that fails or hangs. It writes snapshot outputs only in the build working directory.
+The executable accepts one case name argument so CTest can report the exact PPM scenario that fails or hangs. Each PPM case has a short CTest timeout to keep CI actionable on platforms where the failure reproduces only remotely. It writes snapshot outputs only in the build working directory.
 
 ## Ownership And Failure Modes
 The renderer handle is destroyed before exit. Missing assets are degraded result statuses; malformed assets return non-OK statuses.

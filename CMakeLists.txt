@@ -178,6 +178,7 @@ foreach(ppm_case
     NAME ht_test_score_renderer_ppm_${ppm_case}
     COMMAND ht_test_score_renderer_ppm ${ppm_case}
   )
+  set_tests_properties(ht_test_score_renderer_ppm_${ppm_case} PROPERTIES TIMEOUT 20)
 endforeach()
 
 add_executable(ht_test_midi_decode tests/test_midi_decode.c)
