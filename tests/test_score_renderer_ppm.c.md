@@ -1,0 +1,24 @@
+# test_score_renderer_ppm.c
+
+## Purpose
+Verifies PPM loading, rendering, output writing, and malformed asset failures.
+
+## Theory
+The viewer pilot depends on deterministic P6 PPM assets and should reject malformed inputs before an interactive UI exists.
+
+## Architecture Role
+This test guards the private PPM/render path through the public `score_renderer` API.
+
+## Implementation Contract
+The test uses `<assert.h>` and one `int main(void)` executable. It writes snapshot outputs only in the build working directory.
+
+## Ownership And Failure Modes
+The renderer handle is destroyed before exit. Missing assets are degraded result statuses; malformed assets return non-OK statuses.
+
+## Test Strategy
+It checks a valid synthetic render, red overlay pixels, missing assets, bad magic, bad max value, short payload, malformed header, and overlay dimension mismatch.
+
+## Spec Links
+- docs/LOCAL_SPEC.md
+- docs/ARCHITECTURE.md
+- docs/ADR/ADR-0001-sdl2-custom-ui.md

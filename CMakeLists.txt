@@ -139,6 +139,11 @@ ht_apply_unix_definitions(ht_midi_probe)
 ht_apply_warnings(ht_midi_probe)
 target_link_libraries(ht_midi_probe PRIVATE ht_midi_decode ht_midi_hal)
 
+add_executable(ht_viewer_snapshot tools/ht_viewer_snapshot.c)
+ht_apply_unix_definitions(ht_viewer_snapshot)
+ht_apply_warnings(ht_viewer_snapshot)
+target_link_libraries(ht_viewer_snapshot PRIVATE hanon_trainer)
+
 function(ht_add_c_test name source)
   add_executable(${name} ${source})
   target_link_libraries(${name} PRIVATE hanon_trainer)
@@ -152,6 +157,9 @@ ht_add_c_test(ht_test_overlay_store tests/test_overlay_store.c)
 ht_add_c_test(ht_test_sqlite_store tests/test_sqlite_store.c)
 ht_add_c_test(ht_test_performance_analysis tests/test_performance_analysis.c)
 ht_add_c_test(ht_test_hanon_01c_pilot_analysis tests/test_hanon_01c_pilot_analysis.c)
+ht_add_c_test(ht_test_score_renderer_layout tests/test_score_renderer_layout.c)
+ht_add_c_test(ht_test_score_renderer_ppm tests/test_score_renderer_ppm.c)
+ht_add_c_test(ht_test_hanon_01c_viewer_projection tests/test_hanon_01c_viewer_projection.c)
 ht_add_c_test(ht_test_advice_orchestrator tests/test_advice_orchestrator.c)
 ht_add_c_test(ht_test_platform_boundaries tests/test_platform_boundaries.c)
 
@@ -202,6 +210,15 @@ add_test(
   COMMAND ${Python3_EXECUTABLE}
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/tools/check_midi_probe_cli.py
     --probe $<TARGET_FILE:ht_midi_probe>
+)
+
+add_test(
+  NAME ht_viewer_snapshot_cli
+  COMMAND ${Python3_EXECUTABLE}
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/tools/check_viewer_snapshot_cli.py
+    --viewer $<TARGET_FILE:ht_viewer_snapshot>
+    --fixtures ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/viewer-corpus
+    --out-dir ${CMAKE_CURRENT_BINARY_DIR}/viewer-snapshot-cli
 )
 
 add_test(

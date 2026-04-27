@@ -157,6 +157,8 @@ Before the app claims a variant is supported, the pipeline should verify:
 - every overlay reference dimension matches the display asset dimensions
 - every analysis-enabled variant has enough step metadata to compare captured
   MIDI against expectations
+- the headless viewer can project at least one active overlay rectangle and
+  write a nonblank snapshot when the display asset exists
 
 ## Related Decisions
 
