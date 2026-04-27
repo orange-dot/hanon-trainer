@@ -1,6 +1,6 @@
 # hanon-trainer
 
-Local Linux-native Hanon practice and teaching app in `C`.
+Local Hanon practice and teaching app in `C`.
 
 ## Status
 
@@ -19,9 +19,9 @@ Current implementation status:
   analysis, step results, and advice artifacts
 - synthetic post-session pitch/timing analysis over persisted MIDI events
 - local Codex advice orchestration stub returning `HT_GENERATION_STUBBED`
-- SDL2/SDL_ttf and ALSA compile/link boundaries without opening a window or
-  requiring live MIDI hardware
-- standalone ALSA MIDI hardware probe for local keyboard smoke testing
+- SDL2/SDL_ttf and native MIDI compile/link boundaries without opening a
+  window or requiring live MIDI hardware
+- standalone MIDI hardware probe for local keyboard smoke testing
 - companion source documentation checked by CTest
 
 Manual score coordinates, expected pitches, fingering, and timing windows have
@@ -36,8 +36,18 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-GitHub Actions runs the same native setup/build/test path for pushes to
-`development` and `dev`, plus manual workflow dispatch.
+The default MIDI backend is selected from the host OS: ALSA on Linux, CoreMIDI
+on macOS, and WinMM on Windows. A deterministic fake backend is available for
+hardware-free HAL tests:
+
+```sh
+cmake -S . -B build-fake -G Ninja -DHT_MIDI_BACKEND=FAKE
+cmake --build build-fake
+ctest --test-dir build-fake --output-on-failure
+```
+
+GitHub Actions runs native build/test paths on Linux, macOS, and Windows, plus
+a fake-backend test path on Linux.
 
 If `corpus/source-pdfs/hanon-exercise-01-c.pdf` is absent in a fresh checkout,
 the asset-generation CTest is skipped. If the PDF is present locally, the test
@@ -45,9 +55,9 @@ generates and verifies `corpus/runtime/assets/hanon-exercise-01-c.ppm`.
 
 ## Hardware MIDI Probe
 
-`ht_midi_probe` is a local ALSA sanity check for real keyboard input. It does
-not write SQLite, does not read stdin, and does not enable the application
-capture path yet.
+`ht_midi_probe` is a local MIDI sanity check for real keyboard input. It uses
+the same private HAL as `midi_capture`, does not write SQLite, and does not
+read stdin.
 
 List readable MIDI source ports:
 
@@ -58,21 +68,22 @@ List readable MIDI source ports:
 Capture a short table or TSV stream:
 
 ```sh
-./build/ht_midi_probe --port <client>:<port> --duration 10 --format table
-./build/ht_midi_probe --port <client>:<port> --duration 10 --format tsv
+./build/ht_midi_probe --port <device_id> --duration 10 --format table
+./build/ht_midi_probe --port <device_id> --duration 10 --format tsv
 ```
 
-Use the `<client>:<port>` value from `--list`; ALSA numeric client identifiers
-can change after reconnects or reboot. If no MIDI ports appear, check the USB
-connection and local access first:
+Use the backend-prefixed `device_id` value from `--list`, for example
+`alsa:<client>:<port>`, `coremidi:<id>`, or `winmm:<index>`. Stored identifiers
+can become stale after reconnects, reboot, or host changes. On Linux, if no
+MIDI ports appear, check the USB connection and local access first:
 
 ```sh
 aconnect -i
 groups | grep audio
 ```
 
-For a known ALSA port, `aseqdump -p <client>:<port>` is still useful as an
-external cross-check when diagnosing driver or permissions problems.
+For a known ALSA port on Linux, `aseqdump -p <client>:<port>` is still useful
+as an external cross-check when diagnosing driver or permissions problems.
 
 CTest also generates a synthetic Kurzweil PC4-like capture under
 `build/generated-fixtures/synthetic-pc4-capture/`. That CI fixture emits raw
@@ -115,7 +126,7 @@ relicensed by the MIT License.
 ## Product Posture
 
 - local-only desktop app for personal practice
-- Linux-native implementation in `C`
+- native C implementation with ALSA, CoreMIDI, WinMM, and fake MIDI backends
 - score-first experience with keyboard guidance
 - MIDI ingress for captured practice takes
 - post-session pitch and timing analysis

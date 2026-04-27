@@ -3,6 +3,12 @@ name: CI
 on:
   push:
     branches:
+      - main
+      - development
+      - dev
+  pull_request:
+    branches:
+      - main
       - development
       - dev
   workflow_dispatch:
@@ -43,6 +49,86 @@ jobs:
             --fixtures tests/fixtures/pc4-live-midi \
             --probe build/ht_midi_probe \
             --verbose
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  linux-fake-midi:
+    name: Linux fake MIDI backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install and verify native dependencies
+        run: scripts/setup-dev-env.sh
+
+      - name: Configure fake MIDI backend
+        run: cmake -S . -B build-fake -G Ninja -DHT_MIDI_BACKEND=FAKE
+
+      - name: Build
+        run: cmake --build build-fake
+
+      - name: Test
+        run: ctest --test-dir build-fake --output-on-failure
+
+  macos-native:
+    name: macOS native build and test
+    runs-on: macos-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install dependencies
+        run: brew install cmake ninja pkg-config sqlite sdl2 sdl2_ttf poppler
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  windows-native:
+    name: Windows native build and test
+    runs-on: windows-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            git
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-sqlite3
+            mingw-w64-ucrt-x86_64-SDL2
+            mingw-w64-ucrt-x86_64-SDL2_ttf
+            mingw-w64-ucrt-x86_64-poppler
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja
+
+      - name: Build
+        run: cmake --build build
 
       - name: Test
         run: ctest --test-dir build --output-on-failure
