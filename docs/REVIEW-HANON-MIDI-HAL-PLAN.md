@@ -250,8 +250,8 @@ POSIX feature macros, and Unix-ish tool behavior.
 Proposed improvement:
 
 - Make MIDI backend selection platform-aware in its own target block.
-- Apply `_DEFAULT_SOURCE` and `_POSIX_C_SOURCE=200809L` only to Unix-like
-  targets that need them.
+- Apply `_DEFAULT_SOURCE` and `_POSIX_C_SOURCE=200809L` only to Linux targets
+  that need them; use Darwin-specific feature visibility on macOS.
 - Replace `pkg_check_modules(ALSA REQUIRED alsa)` with Linux-only ALSA lookup.
 - Link macOS with `CoreMIDI` and `CoreFoundation`.
 - Link Windows with `winmm`.

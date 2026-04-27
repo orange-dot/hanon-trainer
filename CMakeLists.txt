@@ -66,8 +66,10 @@ function(ht_apply_warnings name)
 endfunction()
 
 function(ht_apply_unix_definitions name)
-  if(UNIX)
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_compile_definitions(${name} PRIVATE _DEFAULT_SOURCE _POSIX_C_SOURCE=200809L)
+  elseif(APPLE)
+    target_compile_definitions(${name} PRIVATE _DARWIN_C_SOURCE)
   endif()
 endfunction()
 

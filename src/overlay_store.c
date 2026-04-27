@@ -71,6 +71,24 @@ static char* trim_line_end(char* line) {
     return line;
 }
 
+static char* split_next_field(char** cursor, char delimiter) {
+    char* field;
+    char* split;
+
+    if ((cursor == NULL) || (*cursor == NULL)) {
+        return NULL;
+    }
+    field = *cursor;
+    split = strchr(field, delimiter);
+    if (split == NULL) {
+        *cursor = NULL;
+    } else {
+        *split = '\0';
+        *cursor = split + 1;
+    }
+    return field;
+}
+
 static ht_status parse_unsigned(char const* text, unsigned* out_value) {
     char* end = NULL;
     unsigned long value;
@@ -155,7 +173,7 @@ static ht_status parse_pitches(char const* text,
         return HT_OK;
     }
 
-    while ((token = strsep(&cursor, " ")) != NULL) {
+    while ((token = split_next_field(&cursor, ' ')) != NULL) {
         if (token[0] == '\0') {
             continue;
         }
@@ -185,7 +203,7 @@ static ht_status parse_overlay_line(char* line, ht_overlay_record* out_overlay) 
 
     memset(out_overlay, 0, sizeof(*out_overlay));
     while ((index < 8u) && (cursor != NULL)) {
-        field[index] = strsep(&cursor, "\t");
+        field[index] = split_next_field(&cursor, '\t');
         ++index;
     }
     if (index != 8u) {
@@ -235,7 +253,7 @@ static ht_status parse_step_line(char* line, ht_overlay_step_record* out_step) {
 
     memset(out_step, 0, sizeof(*out_step));
     while ((index < 12u) && (cursor != NULL)) {
-        field[index] = strsep(&cursor, "\t");
+        field[index] = split_next_field(&cursor, '\t');
         ++index;
     }
     if (index != 12u) {

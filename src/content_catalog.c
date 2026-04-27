@@ -67,6 +67,25 @@ static char* trim_line_end(char* line) {
     return line;
 }
 
+static char* split_next_field(char** cursor, char delimiter) {
+    char* field;
+    char* split;
+
+    if ((cursor == NULL) || (*cursor == NULL)) {
+        return NULL;
+    }
+
+    field = *cursor;
+    split = strchr(field, delimiter);
+    if (split == NULL) {
+        *cursor = NULL;
+    } else {
+        *split = '\0';
+        *cursor = split + 1;
+    }
+    return field;
+}
+
 static ht_status parse_unsigned(char const* text, unsigned* out_value) {
     char* end = NULL;
     unsigned long value;
@@ -97,7 +116,7 @@ static ht_status parse_variant_line(char* line, ht_variant_record* out_variant) 
 
     memset(out_variant, 0, sizeof(*out_variant));
     while ((index < 16u) && (cursor != NULL)) {
-        field[index] = strsep(&cursor, "\t");
+        field[index] = split_next_field(&cursor, '\t');
         ++index;
     }
     if (index != 16u) {
