@@ -1,0 +1,8 @@
+overlay_id	variant_id	step_count	hand_scope	analysis_enabled	coverage_scope	reference_asset_width_px	reference_asset_height_px
+viewer-overlay-valid	viewer-valid	2	both	true	bounded_passage	4	4
+viewer-overlay-bad-magic	viewer-bad-magic	1	both	true	bounded_passage	4	4
+viewer-overlay-bad-max	viewer-bad-max	1	both	true	bounded_passage	4	4
+viewer-overlay-short-payload	viewer-short-payload	1	both	true	bounded_passage	4	4
+viewer-overlay-malformed-header	viewer-malformed-header	1	both	true	bounded_passage	4	4
+viewer-overlay-missing-asset	viewer-missing-asset	1	both	true	bounded_passage	4	4
+viewer-overlay-bad-dims	viewer-bad-overlay-dims	1	both	true	bounded_passage	8	8

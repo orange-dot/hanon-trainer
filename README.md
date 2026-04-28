@@ -19,6 +19,8 @@ Current implementation status:
   analysis, step results, and advice artifacts
 - post-session pitch/timing analysis over persisted MIDI events, including
   two-hand pitch groups for the first Hanon 01C pilot passage
+- headless score snapshot rendering with active overlay projection for the
+  Hanon 01C pilot passage
 - local Codex advice orchestration stub returning `HT_GENERATION_STUBBED`
 - SDL2/SDL_ttf and native MIDI compile/link boundaries without opening a
   window or requiring live MIDI hardware
@@ -54,6 +56,21 @@ a fake-backend test path on Linux.
 If `corpus/source-pdfs/hanon-exercise-01-c.pdf` is absent in a fresh checkout,
 the asset-generation CTest is skipped. If the PDF is present locally, the test
 generates and verifies `corpus/runtime/assets/hanon-exercise-01-c.ppm`.
+
+Create a local score snapshot for the Hanon 01C pilot when the runtime PPM
+asset exists:
+
+```sh
+./build/ht_viewer_snapshot \
+  --corpus corpus \
+  --asset-root . \
+  --variant hanon-01-c \
+  --step 0 \
+  --viewport 1280x900 \
+  --out build/hanon-01c-step0.ppm
+```
+
+This snapshot path is headless and does not open an SDL window.
 
 ## Hardware MIDI Probe
 

@@ -1,0 +1,8 @@
+exercise_id	variant_id	exercise_number	title	key_name	sort_order	tempo_text	repeat_text	practice_notes	source_page_path	source_pdf_path	display_asset_path	display_asset_width_px	display_asset_height_px	overlay_id	support_level
+viewer-exercise	viewer-valid	1	Viewer Valid	C	1	tempo	repeat	notes	source	page	assets/synthetic-score.ppm	4	4	viewer-overlay-valid	pilot_analysis
+viewer-exercise	viewer-bad-magic	1	Viewer Bad Magic	C	2	tempo	repeat	notes	source	page	assets/bad-magic.ppm	4	4	viewer-overlay-bad-magic	pilot_analysis
+viewer-exercise	viewer-bad-max	1	Viewer Bad Max	C	3	tempo	repeat	notes	source	page	assets/bad-max.ppm	4	4	viewer-overlay-bad-max	pilot_analysis
+viewer-exercise	viewer-short-payload	1	Viewer Short Payload	C	4	tempo	repeat	notes	source	page	assets/short-payload.ppm	4	4	viewer-overlay-short-payload	pilot_analysis
+viewer-exercise	viewer-malformed-header	1	Viewer Malformed Header	C	5	tempo	repeat	notes	source	page	assets/malformed-header.ppm	4	4	viewer-overlay-malformed-header	pilot_analysis
+viewer-exercise	viewer-missing-asset	1	Viewer Missing Asset	C	6	tempo	repeat	notes	source	page	assets/missing.ppm	4	4	viewer-overlay-missing-asset	pilot_analysis
+viewer-exercise	viewer-bad-overlay-dims	1	Viewer Bad Overlay Dims	C	7	tempo	repeat	notes	source	page	assets/synthetic-score.ppm	4	4	viewer-overlay-bad-dims	pilot_analysis
