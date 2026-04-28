@@ -1,31 +1,30 @@
-#include <alsa/asoundlib.h>
-
 #include "midi_decode.h"
+#include "midi_hal.h"
 
 #include <errno.h>
 #include <limits.h>
 #include <locale.h>
-#include <poll.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sysexits.h>
 #include <time.h>
 
-#ifndef EX_USAGE
-#define EX_USAGE 64
+#ifdef _WIN32
+#include <windows.h>
 #endif
+
+#define HT_EX_USAGE 64
+#define HT_MIDI_PROBE_MAX_DURATION_SECONDS 3600L
+#define HT_PROBE_REPLAY_LINE_CAPACITY 4096u
+#define HT_PROBE_REPLAY_RAW_CAPACITY 256u
+#define HT_PROBE_MAX_PORTS 128u
 
 #ifndef HT_PROJECT_VERSION
 #define HT_PROJECT_VERSION "0.0.0"
 #endif
-
-#define HT_MIDI_PROBE_MAX_DURATION_SECONDS 3600L
-#define HT_PROBE_REPLAY_LINE_CAPACITY 4096u
-#define HT_PROBE_REPLAY_RAW_CAPACITY 256u
 
 typedef enum ht_probe_format {
     HT_PROBE_FORMAT_NONE = 0,
@@ -41,13 +40,6 @@ typedef struct ht_probe_options {
     ht_probe_format format;
 } ht_probe_options;
 
-typedef struct ht_probe_context {
-    snd_seq_t* seq;
-    snd_seq_addr_t sender;
-    int local_port;
-    bool connected;
-} ht_probe_context;
-
 static volatile sig_atomic_t stop_requested;
 
 static void request_stop(int signal_number) {
@@ -61,19 +53,15 @@ static void print_usage(FILE* output) {
             "  ht_midi_probe --help\n"
             "  ht_midi_probe --version\n"
             "  ht_midi_probe --list\n"
-            "  ht_midi_probe --port CLIENT:PORT --duration SECONDS --format table\n"
-            "  ht_midi_probe --port CLIENT:PORT --duration SECONDS --format tsv\n"
+            "  ht_midi_probe --port DEVICE_ID --duration SECONDS --format table\n"
+            "  ht_midi_probe --port DEVICE_ID --duration SECONDS --format tsv\n"
             "  ht_midi_probe --replay-raw-tsv PATH --format tsv\n");
 }
 
 static int usage_error(char const* message) {
     fprintf(stderr, "usage: %s\n", message);
     print_usage(stderr);
-    return EX_USAGE;
-}
-
-static void print_alsa_error(char const* action, int rc) {
-    fprintf(stderr, "alsa: %s: %s\n", action, snd_strerror(rc));
+    return HT_EX_USAGE;
 }
 
 static char const* probe_status_name(ht_status status) {
@@ -82,11 +70,32 @@ static char const* probe_status_name(ht_status status) {
         return "HT_OK";
     case HT_ERR_INVALID_ARG:
         return "HT_ERR_INVALID_ARG";
+    case HT_ERR_NOT_FOUND:
+        return "HT_ERR_NOT_FOUND";
+    case HT_ERR_IO:
+        return "HT_ERR_IO";
+    case HT_ERR_UNSUPPORTED:
+        return "HT_ERR_UNSUPPORTED";
+    case HT_ERR_TIMEOUT:
+        return "HT_ERR_TIMEOUT";
     case HT_ERR_CORRUPT_DATA:
         return "HT_ERR_CORRUPT_DATA";
-    default:
+    case HT_ERR_BUFFER_TOO_SMALL:
+        return "HT_ERR_BUFFER_TOO_SMALL";
+    case HT_ERR_DB:
+    case HT_ERR_EXTERNAL_TOOL:
         return "HT_ERR_OTHER";
     }
+    return "HT_ERR_OTHER";
+}
+
+static int midi_runtime_error(char const* action, ht_status status) {
+    fprintf(stderr,
+            "midi: %s (%s backend): %s\n",
+            action,
+            ht_midi_hal_backend_name(),
+            probe_status_name(status));
+    return 1;
 }
 
 static bool parse_long(char const* text, long* out_value) {
@@ -124,7 +133,7 @@ static int parse_options(int argc, char** argv, ht_probe_options* out_options) {
     int index;
 
     if (out_options == NULL) {
-        return EX_USAGE;
+        return HT_EX_USAGE;
     }
 
     memset(out_options, 0, sizeof(*out_options));
@@ -134,7 +143,9 @@ static int parse_options(int argc, char** argv, ht_probe_options* out_options) {
             exit(0);
         }
         if (strcmp(argv[index], "--version") == 0) {
-            printf("hanon-trainer %s\nALSA %s\n", HT_PROJECT_VERSION, snd_asoundlib_version());
+            printf("hanon-trainer %s\nMIDI backend: %s\n",
+                   HT_PROJECT_VERSION,
+                   ht_midi_hal_backend_name());
             exit(0);
         }
         if (strcmp(argv[index], "--list") == 0) {
@@ -214,99 +225,23 @@ static int parse_options(int argc, char** argv, ht_probe_options* out_options) {
         return usage_error("capture requires --duration");
     }
     if (out_options->format == HT_PROBE_FORMAT_NONE) {
-        return usage_error("capture requires --format table or --format tsv");
+        return usage_error("capture requires --format table or tsv");
     }
 
-    return 0;
-}
-
-static int open_sequencer(snd_seq_t** out_seq) {
-    snd_seq_t* seq = NULL;
-    int rc;
-
-    if (out_seq != NULL) {
-        *out_seq = NULL;
-    }
-    if (out_seq == NULL) {
-        return -EINVAL;
-    }
-
-    rc = snd_seq_open(&seq, "default", SND_SEQ_OPEN_INPUT, SND_SEQ_NONBLOCK);
-    if (rc < 0) {
-        return rc;
-    }
-
-    rc = snd_seq_set_client_name(seq, "hanon-trainer MIDI probe");
-    if (rc < 0) {
-        snd_seq_close(seq);
-        return rc;
-    }
-
-    *out_seq = seq;
-    return 0;
-}
-
-static int list_ports(void) {
-    snd_seq_t* seq = NULL;
-    snd_seq_client_info_t* client_info = NULL;
-    snd_seq_port_info_t* port_info = NULL;
-    unsigned listed_count = 0u;
-    int rc;
-
-    rc = open_sequencer(&seq);
-    if (rc < 0) {
-        print_alsa_error("cannot open sequencer", rc);
-        return 1;
-    }
-
-    rc = snd_seq_client_info_malloc(&client_info);
-    if (rc < 0) {
-        print_alsa_error("cannot allocate client info", rc);
-        snd_seq_close(seq);
-        return 1;
-    }
-    rc = snd_seq_port_info_malloc(&port_info);
-    if (rc < 0) {
-        print_alsa_error("cannot allocate port info", rc);
-        snd_seq_client_info_free(client_info);
-        snd_seq_close(seq);
-        return 1;
-    }
-
-    printf("port\tclient\tname\n");
-    snd_seq_client_info_set_client(client_info, -1);
-    while (snd_seq_query_next_client(seq, client_info) >= 0) {
-        int client = snd_seq_client_info_get_client(client_info);
-        char const* client_name = snd_seq_client_info_get_name(client_info);
-
-        snd_seq_port_info_set_client(port_info, client);
-        snd_seq_port_info_set_port(port_info, -1);
-        while (snd_seq_query_next_port(seq, port_info) >= 0) {
-            unsigned int capability = snd_seq_port_info_get_capability(port_info);
-
-            if (((capability & SND_SEQ_PORT_CAP_READ) != 0u)
-                && ((capability & SND_SEQ_PORT_CAP_SUBS_READ) != 0u)) {
-                printf("%d:%d\t%s\t%s\n",
-                       client,
-                       snd_seq_port_info_get_port(port_info),
-                       client_name,
-                       snd_seq_port_info_get_name(port_info));
-                ++listed_count;
-            }
-        }
-    }
-
-    if (listed_count == 0u) {
-        fprintf(stderr, "alsa: no readable MIDI source ports found\n");
-    }
-
-    snd_seq_port_info_free(port_info);
-    snd_seq_client_info_free(client_info);
-    snd_seq_close(seq);
     return 0;
 }
 
 static int64_t monotonic_ms(void) {
+#ifdef _WIN32
+    static LARGE_INTEGER frequency;
+    LARGE_INTEGER counter;
+
+    if (frequency.QuadPart == 0) {
+        QueryPerformanceFrequency(&frequency);
+    }
+    QueryPerformanceCounter(&counter);
+    return (int64_t)((counter.QuadPart * 1000LL) / frequency.QuadPart);
+#else
     struct timespec now;
 
     if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) {
@@ -314,6 +249,7 @@ static int64_t monotonic_ms(void) {
     }
 
     return ((int64_t)now.tv_sec * 1000) + ((int64_t)now.tv_nsec / 1000000);
+#endif
 }
 
 static void format_unsigned_or_empty(unsigned value, bool has_value) {
@@ -325,94 +261,6 @@ static void format_unsigned_or_empty(unsigned value, bool has_value) {
 static void format_int_or_empty(int value, bool has_value) {
     if (has_value) {
         printf("%d", value);
-    }
-}
-
-static unsigned char clamp_7bit(int value) {
-    if (value < 0) {
-        return 0u;
-    }
-    if (value > 0x7F) {
-        return 0x7Fu;
-    }
-    return (unsigned char)value;
-}
-
-static unsigned char channel_status(unsigned status_class, int alsa_channel) {
-    int channel = alsa_channel;
-
-    if (channel < 0) {
-        channel = 0;
-    }
-    if (channel > 15) {
-        channel = 15;
-    }
-    return (unsigned char)(status_class | (unsigned)channel);
-}
-
-static unsigned normalize_alsa_pitchbend(int value) {
-    long normalized = (long)value + 8192L;
-
-    if (normalized < 0L) {
-        return 0u;
-    }
-    if (normalized > 0x3FFFL) {
-        return 0x3FFFu;
-    }
-    return (unsigned)normalized;
-}
-
-static ht_status decode_alsa_event(snd_seq_event_t const* event,
-                                   ht_midi_decoded_event* out_event) {
-    unsigned char raw[3];
-    unsigned pitchbend_value;
-
-    if ((event == NULL) || (out_event == NULL)) {
-        return HT_ERR_INVALID_ARG;
-    }
-
-    switch (event->type) {
-    case SND_SEQ_EVENT_NOTEON:
-        raw[0] = channel_status(0x90u, event->data.note.channel);
-        raw[1] = clamp_7bit(event->data.note.note);
-        raw[2] = clamp_7bit(event->data.note.velocity);
-        return ht_midi_decode_raw_event(raw, 3u, out_event);
-    case SND_SEQ_EVENT_NOTEOFF:
-        raw[0] = channel_status(0x80u, event->data.note.channel);
-        raw[1] = clamp_7bit(event->data.note.note);
-        raw[2] = clamp_7bit(event->data.note.velocity);
-        return ht_midi_decode_raw_event(raw, 3u, out_event);
-    case SND_SEQ_EVENT_CONTROLLER:
-        raw[0] = channel_status(0xB0u, event->data.control.channel);
-        raw[1] = clamp_7bit(event->data.control.param);
-        raw[2] = clamp_7bit(event->data.control.value);
-        return ht_midi_decode_raw_event(raw, 3u, out_event);
-    case SND_SEQ_EVENT_PITCHBEND:
-        pitchbend_value = normalize_alsa_pitchbend(event->data.control.value);
-        raw[0] = channel_status(0xE0u, event->data.control.channel);
-        raw[1] = (unsigned char)(pitchbend_value & 0x7Fu);
-        raw[2] = (unsigned char)((pitchbend_value >> 7) & 0x7Fu);
-        return ht_midi_decode_raw_event(raw, 3u, out_event);
-    case SND_SEQ_EVENT_PGMCHANGE:
-        raw[0] = channel_status(0xC0u, event->data.control.channel);
-        raw[1] = clamp_7bit(event->data.control.value);
-        return ht_midi_decode_raw_event(raw, 2u, out_event);
-    case SND_SEQ_EVENT_CHANPRESS:
-        raw[0] = channel_status(0xD0u, event->data.control.channel);
-        raw[1] = clamp_7bit(event->data.control.value);
-        return ht_midi_decode_raw_event(raw, 2u, out_event);
-    case SND_SEQ_EVENT_KEYPRESS:
-        raw[0] = channel_status(0xA0u, event->data.note.channel);
-        raw[1] = clamp_7bit(event->data.note.note);
-        raw[2] = clamp_7bit(event->data.note.velocity);
-        return ht_midi_decode_raw_event(raw, 3u, out_event);
-    case SND_SEQ_EVENT_SYSEX:
-        return ht_midi_decode_sysex_length((size_t)event->data.ext.len, out_event);
-    default:
-        memset(out_event, 0, sizeof(*out_event));
-        out_event->kind = HT_MIDI_DECODED_OTHER;
-        out_event->raw_type = (unsigned)event->type;
-        return HT_OK;
     }
 }
 
@@ -483,17 +331,29 @@ static void print_decoded_event(ht_probe_format format,
     print_table_event(ms, decoded);
 }
 
-static int print_alsa_event(ht_probe_format format, int64_t ms, snd_seq_event_t const* event) {
+static ht_status decode_hal_event(ht_midi_hal_event const* event,
+                                  ht_midi_decoded_event* out_decoded) {
+    if ((event == NULL) || (out_decoded == NULL)) {
+        return HT_ERR_INVALID_ARG;
+    }
+    if ((event->raw_byte_count > 0u) && (event->raw_bytes[0] == 0xF0u)
+        && (event->sysex_byte_count > 0u)) {
+        return ht_midi_decode_sysex_length(event->sysex_byte_count, out_decoded);
+    }
+    return ht_midi_decode_raw_event(event->raw_bytes, event->raw_byte_count, out_decoded);
+}
+
+static int print_hal_event(ht_probe_format format, ht_midi_hal_event const* event) {
     ht_midi_decoded_event decoded;
     ht_status status;
 
-    status = decode_alsa_event(event, &decoded);
+    status = decode_hal_event(event, &decoded);
     if (status != HT_OK) {
-        fprintf(stderr, "alsa: cannot decode event: %s\n", probe_status_name(status));
+        fprintf(stderr, "midi: cannot decode event: %s\n", probe_status_name(status));
         return 1;
     }
 
-    print_decoded_event(format, ms, &decoded);
+    print_decoded_event(format, event->event_ns / 1000000, &decoded);
     return 0;
 }
 
@@ -679,138 +539,89 @@ static int replay_raw_tsv(ht_probe_options const* options) {
     return 0;
 }
 
-static void close_probe_context(ht_probe_context* context) {
-    if ((context == NULL) || (context->seq == NULL)) {
-        return;
-    }
-    if (context->connected) {
-        snd_seq_disconnect_from(context->seq,
-                                context->local_port,
-                                context->sender.client,
-                                context->sender.port);
-    }
-    if (context->local_port >= 0) {
-        snd_seq_delete_simple_port(context->seq, context->local_port);
-    }
-    snd_seq_close(context->seq);
-    context->seq = NULL;
-    context->local_port = -1;
-    context->connected = false;
-}
+static int list_ports(void) {
+    ht_midi_hal* hal = NULL;
+    ht_midi_device_record ports[HT_PROBE_MAX_PORTS];
+    size_t port_count = 0u;
+    size_t index;
+    ht_status status;
 
-static int open_capture(ht_probe_options const* options, ht_probe_context* context) {
-    int rc;
-
-    memset(context, 0, sizeof(*context));
-    context->local_port = -1;
-    rc = open_sequencer(&context->seq);
-    if (rc < 0) {
-        print_alsa_error("cannot open sequencer", rc);
-        return 1;
+    status = ht_midi_hal_open(&hal);
+    if (status != HT_OK) {
+        return midi_runtime_error("cannot open MIDI backend", status);
+    }
+    status = ht_midi_hal_list_ports(hal, ports, HT_PROBE_MAX_PORTS, &port_count);
+    if (status != HT_OK) {
+        ht_midi_hal_close(hal);
+        return midi_runtime_error("cannot list MIDI ports", status);
     }
 
-    rc = snd_seq_parse_address(context->seq, &context->sender, options->port_text);
-    if (rc < 0) {
-        fprintf(stderr, "alsa: cannot parse port '%s': %s\n", options->port_text, snd_strerror(rc));
-        close_probe_context(context);
-        return 1;
+    printf("device_id\tbackend\tname\n");
+    for (index = 0u; index < port_count; ++index) {
+        printf("%s\t%s\t%s\n",
+               ports[index].device_id,
+               ht_midi_hal_backend_name(),
+               ports[index].display_name);
+    }
+    if (port_count == 0u) {
+        fprintf(stderr, "midi: no readable MIDI input ports found\n");
     }
 
-    context->local_port = snd_seq_create_simple_port(
-        context->seq,
-        "ht_midi_probe",
-        SND_SEQ_PORT_CAP_WRITE | SND_SEQ_PORT_CAP_SUBS_WRITE,
-        SND_SEQ_PORT_TYPE_APPLICATION);
-    if (context->local_port < 0) {
-        print_alsa_error("cannot create local input port", context->local_port);
-        close_probe_context(context);
-        return 1;
-    }
-
-    rc = snd_seq_connect_from(context->seq,
-                              context->local_port,
-                              context->sender.client,
-                              context->sender.port);
-    if (rc < 0) {
-        print_alsa_error("cannot connect from source port", rc);
-        close_probe_context(context);
-        return 1;
-    }
-    context->connected = true;
-
-    fprintf(stderr,
-            "alsa: connected from %d:%d for %ld seconds\n",
-            context->sender.client,
-            context->sender.port,
-            options->duration_seconds);
+    ht_midi_hal_close(hal);
     return 0;
 }
 
-static int drain_events(ht_probe_context* context,
-                        ht_probe_format format,
-                        int64_t started_ms,
-                        unsigned* event_count) {
-    int rc;
+static int drain_events(ht_midi_hal* hal, ht_probe_format format, unsigned* event_count) {
+    ht_status status;
 
     for (;;) {
-        snd_seq_event_t* event = NULL;
+        ht_midi_hal_event event;
+        bool has_event = false;
 
-        rc = snd_seq_event_input(context->seq, &event);
-        if (rc == -EAGAIN) {
+        status = ht_midi_hal_poll_event(hal, &event, &has_event);
+        if (status != HT_OK) {
+            return midi_runtime_error("cannot read event", status);
+        }
+        if (!has_event) {
             return 0;
         }
-        if (rc < 0) {
-            print_alsa_error("cannot read event", rc);
+        if (print_hal_event(format, &event) != 0) {
             return 1;
         }
-        if (event != NULL) {
-            if (print_alsa_event(format, monotonic_ms() - started_ms, event) != 0) {
-                snd_seq_free_event(event);
-                return 1;
-            }
-            ++(*event_count);
-            snd_seq_free_event(event);
-        }
+        ++(*event_count);
     }
 }
 
 static int capture_events(ht_probe_options const* options) {
-    ht_probe_context context;
-    struct pollfd* poll_descriptors = NULL;
-    int descriptor_count;
-    int64_t started_ms;
+    ht_midi_hal* hal = NULL;
     int64_t deadline_ms;
     unsigned event_count = 0u;
     int result = 0;
+    ht_status status;
 
-    if (open_capture(options, &context) != 0) {
-        return 1;
+    status = ht_midi_hal_open(&hal);
+    if (status != HT_OK) {
+        return midi_runtime_error("cannot open MIDI backend", status);
     }
-
-    descriptor_count = snd_seq_poll_descriptors_count(context.seq, POLLIN);
-    if (descriptor_count <= 0) {
-        fprintf(stderr, "alsa: no poll descriptors available\n");
-        close_probe_context(&context);
-        return 1;
-    }
-    poll_descriptors = calloc((size_t)descriptor_count, sizeof(*poll_descriptors));
-    if (poll_descriptors == NULL) {
-        fprintf(stderr, "alsa: cannot allocate poll descriptors\n");
-        close_probe_context(&context);
-        return 1;
-    }
-    if (snd_seq_poll_descriptors(context.seq, poll_descriptors, (unsigned)descriptor_count, POLLIN)
-        < 0) {
-        fprintf(stderr, "alsa: cannot initialize poll descriptors\n");
-        free(poll_descriptors);
-        close_probe_context(&context);
-        return 1;
+    status = ht_midi_hal_connect(hal, options->port_text);
+    if (status != HT_OK) {
+        ht_midi_hal_close(hal);
+        return midi_runtime_error("cannot connect MIDI port", status);
     }
 
+    fprintf(stderr,
+            "midi: connected to %s with %s backend for %ld seconds\n",
+            options->port_text,
+            ht_midi_hal_backend_name(),
+            options->duration_seconds);
+
+    stop_requested = 0;
     signal(SIGINT, request_stop);
+#ifdef SIGTERM
     signal(SIGTERM, request_stop);
-    started_ms = monotonic_ms();
-    deadline_ms = started_ms + (options->duration_seconds * 1000);
+#endif
+
+    deadline_ms = monotonic_ms() + (options->duration_seconds * 1000);
     if (options->format == HT_PROBE_FORMAT_TSV) {
         print_tsv_header();
     }
@@ -818,39 +629,31 @@ static int capture_events(ht_probe_options const* options) {
     while (!stop_requested) {
         int64_t now_ms = monotonic_ms();
         int64_t remaining_ms = deadline_ms - now_ms;
-        int poll_timeout_ms;
-        int rc;
+        int wait_ms;
 
         if (remaining_ms <= 0) {
             break;
         }
-        poll_timeout_ms = (remaining_ms > INT_MAX) ? INT_MAX : (int)remaining_ms;
-        rc = poll(poll_descriptors, (nfds_t)descriptor_count, poll_timeout_ms);
-        if (rc < 0) {
-            if (errno == EINTR) {
-                continue;
-            }
-            fprintf(stderr, "alsa: poll failed: %s\n", strerror(errno));
-            result = 1;
+        wait_ms = (remaining_ms > INT_MAX) ? INT_MAX : (int)remaining_ms;
+        status = ht_midi_hal_wait_event(hal, wait_ms);
+        if (status != HT_OK) {
+            result = midi_runtime_error("cannot wait for MIDI event", status);
             break;
         }
-        if (rc == 0) {
-            continue;
-        }
-        result = drain_events(&context, options->format, started_ms, &event_count);
+        result = drain_events(hal, options->format, &event_count);
         if (result != 0) {
             break;
         }
     }
 
     if (result == 0) {
-        result = drain_events(&context, options->format, started_ms, &event_count);
+        result = drain_events(hal, options->format, &event_count);
     }
     fflush(stdout);
-    fprintf(stderr, "alsa: captured %u events in %ld seconds\n", event_count, options->duration_seconds);
+    fprintf(stderr, "midi: captured %u events in %ld seconds\n", event_count, options->duration_seconds);
 
-    free(poll_descriptors);
-    close_probe_context(&context);
+    (void)ht_midi_hal_disconnect(hal);
+    ht_midi_hal_close(hal);
     return result;
 }
 

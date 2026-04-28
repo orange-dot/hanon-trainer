@@ -171,6 +171,11 @@ String rules:
 app/session orchestration layer drains captured events and calls
 `sqlite_store`.
 
+MIDI device identifiers are backend-owned strings for the current host, such as
+`alsa:<client>:<port>`, `coremidi:<id>`, or `winmm:<index>`. Stored identifiers
+can become stale when hardware or host routing changes; starting capture for a
+stale identifier returns `HT_ERR_NOT_FOUND`.
+
 `ht_midi_capture_poll_event` returns `HT_OK` with `*out_has_event == false`
 when no event is currently available. An empty poll is not an error and must
 not write a meaningful event record.

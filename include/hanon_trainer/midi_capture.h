@@ -27,8 +27,10 @@ void ht_midi_capture_close(ht_midi_capture* capture);
 /**
  * List available MIDI devices into caller-owned storage.
  *
- * capacity is an element count. This first slice does not enumerate live ALSA
- * devices and returns HT_OK with out_count set to zero.
+ * capacity is an element count. Device identifiers are backend-owned stable
+ * tokens for the current host, such as backend-prefixed native MIDI port IDs.
+ * A previously stored identifier can become stale after reconnects or host
+ * changes; start then returns HT_ERR_NOT_FOUND.
  */
 ht_status ht_midi_capture_list_devices(ht_midi_capture const* capture,
                                        ht_midi_device_record* out_devices,
@@ -38,7 +40,8 @@ ht_status ht_midi_capture_list_devices(ht_midi_capture const* capture,
 /**
  * Start capture for a borrowed device_id and session_id.
  *
- * Live capture is intentionally unsupported in this slice.
+ * A capture handle supports one active input stream at a time. Call stop before
+ * starting another stream with the same handle.
  */
 ht_status ht_midi_capture_start(ht_midi_capture* capture,
                                 char const* device_id,

@@ -13,7 +13,7 @@ This test guards the `sqlite_store` integration boundary before analysis and adv
 The test uses `<assert.h>` and one `int main(void)` executable.
 
 ## Ownership And Failure Modes
-The in-memory database handle is closed. Buffer-too-small cases verify count reporting without ownership transfer.
+The in-memory database handle is closed. The reopen/foreign-key check uses a relative on-disk database path so CTest can run on Unix-like and Windows hosts. Buffer-too-small cases verify count reporting without ownership transfer.
 
 ## Test Strategy
 It covers migration, load/save state, sessions, event loading, analysis loading, step loading, and advice storage.

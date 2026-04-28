@@ -67,6 +67,11 @@ The main window uses four persistent areas plus one on-demand review surface:
 - practice notes and review summaries must stay out of the score canvas
 - missing-overlay or unsupported-analysis states should be obvious, not silent
 
+The current viewer pilot proves this as a headless snapshot renderer only: it
+loads a score asset, projects one active overlay rectangle, and writes a PPM
+image for inspection. It does not yet provide the interactive SDL window,
+browser rail, capture controls, or review panel described above.
+
 ## Guidance Presentation
 
 The guidance area still combines two roles:

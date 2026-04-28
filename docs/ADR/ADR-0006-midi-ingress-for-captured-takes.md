@@ -27,6 +27,10 @@ The first build does not perform live coaching during active capture.
 `midi_capture` must not depend on SQLite. It owns device enumeration and capture
 mechanics only; persistence remains behind `sqlite_store`.
 
+OS-specific MIDI APIs stay behind a private HAL. Linux uses ALSA sequencer,
+macOS uses CoreMIDI, Windows uses WinMM, and tests can select a deterministic
+fake backend. Public capture records and status codes remain platform-neutral.
+
 Captured event timestamps use nanoseconds relative to the start of the capture
 session. Wall-clock session timestamps stay on the practice session record.
 

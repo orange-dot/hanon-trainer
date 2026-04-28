@@ -1,0 +1,16 @@
+session_id	sequence_no	event_ns	status_byte	data_1	data_2	channel	event_kind
+hanon-01-c-missing-note	1	0	144	48	100	1	1
+hanon-01-c-missing-note	2	0	144	60	100	1	1
+hanon-01-c-missing-note	3	1000000000	144	50	100	1	1
+hanon-01-c-missing-note	4	1000000000	144	62	100	1	1
+hanon-01-c-missing-note	5	2000000000	144	52	100	1	1
+hanon-01-c-missing-note	6	2000000000	144	64	100	1	1
+hanon-01-c-missing-note	7	3000000000	144	53	100	1	1
+hanon-01-c-missing-note	8	4000000000	144	55	100	1	1
+hanon-01-c-missing-note	9	4000000000	144	67	100	1	1
+hanon-01-c-missing-note	10	5000000000	144	53	100	1	1
+hanon-01-c-missing-note	11	5000000000	144	65	100	1	1
+hanon-01-c-missing-note	12	6000000000	144	52	100	1	1
+hanon-01-c-missing-note	13	6000000000	144	64	100	1	1
+hanon-01-c-missing-note	14	7000000000	144	50	100	1	1
+hanon-01-c-missing-note	15	7000000000	144	62	100	1	1

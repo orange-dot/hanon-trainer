@@ -1,0 +1,9 @@
+overlay_id	step_index	page_index	x	y	width	height	keyboard_target	finger_label	step_note	expected_pitches	timing_window_ms
+viewer-overlay-valid	0	0	1	1	2	2	C4	1	valid step 0	60	50
+viewer-overlay-valid	1	0	2	1	1	2	D4	2	valid step 1	62	50
+viewer-overlay-bad-magic	0	0	1	1	2	2	C4	1	bad magic	60	50
+viewer-overlay-bad-max	0	0	1	1	2	2	C4	1	bad max	60	50
+viewer-overlay-short-payload	0	0	1	1	2	2	C4	1	short payload	60	50
+viewer-overlay-malformed-header	0	0	1	1	2	2	C4	1	malformed header	60	50
+viewer-overlay-missing-asset	0	0	1	1	2	2	C4	1	missing asset	60	50
+viewer-overlay-bad-dims	0	0	1	1	2	2	C4	1	bad dims	60	50

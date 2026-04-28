@@ -16,7 +16,7 @@ The test uses `<assert.h>` and one `int main(void)` executable, with helper func
 Each analysis case uses an in-memory database and closes all handles. Assertions cover expected metric outcomes.
 
 ## Test Strategy
-It checks perfect, wrong-note, missing-note, and late-onset cases.
+It checks perfect, wrong-note, missing-note, late-onset, same-step weakness, and midpoint ownership cases.
 
 ## Spec Links
 - docs/LOCAL_SPEC.md

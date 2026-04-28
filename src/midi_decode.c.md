@@ -7,7 +7,7 @@ Decodes one raw MIDI event packet into the internal event shape used by local di
 Raw MIDI status bytes carry both the event class and, for channel voice messages, a zero-based channel nibble. The decoder normalizes those bytes into user-facing channels and event fields while keeping the original status class visible.
 
 ## Architecture Role
-This is a private C module, not part of the public library ABI. It gives hardware diagnostics and generated fixture tests one shared decode path before live `midi_capture` is enabled.
+This is a private C module, not part of the public library ABI. It gives hardware diagnostics, live `midi_capture`, and generated fixture tests one shared decode path.
 
 ## Implementation Contract
 Known channel messages require their exact raw byte count and seven-bit data bytes. `NOTEON velocity=0` is normalized as `note_off`; SysEx reports its raw byte length as `value`; unsupported well-formed status bytes decode as `other`.

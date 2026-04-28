@@ -16,8 +16,8 @@ int main(void) {
     assert(strcmp(variant.key_name, "C") == 0);
     assert(variant.display_asset_width_px == 2480u);
     assert(variant.display_asset_height_px == 3508u);
-    assert(variant.overlay_id[0] == '\0');
-    assert(variant.support_level == HT_SUPPORT_ASSET_ONLY);
+    assert(strcmp(variant.overlay_id, "hanon-01-c-pilot-001") == 0);
+    assert(variant.support_level == HT_SUPPORT_PILOT_ANALYSIS);
     assert(ht_catalog_lookup_variant(catalog, "missing", &variant) == HT_ERR_NOT_FOUND);
     ht_catalog_close(catalog);
 
